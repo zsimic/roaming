@@ -1,0 +1,245 @@
+#!/usr/bin/env python
+
+"""
+Setup roaming settings for ST2, shell settings etc.
+"""
+import argparse
+import os
+import platform
+import shutil
+
+PLATFORM_SYSTEM = platform.system().lower()
+if PLATFORM_SYSTEM == 'windows':
+  HOME = os.environ.get('APPDATA')
+else:
+  HOME = os.environ.get('HOME')
+if not HOME:
+  HOME = os.path.expanduser('~')
+ROAMING = os.path.dirname(os.path.abspath(os.path.expanduser(__file__)))
+
+if PLATFORM_SYSTEM == 'windows':
+  # Add support for os.symlink and os.path.islink on Windows...
+  import ctypes
+  from ctypes import windll
+
+  __CSL = None
+  FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+  GetFileAttributes = windll.kernel32.GetFileAttributesW
+
+  def symlink(source, link_name):
+    global __CSL
+    if __CSL is None:
+      csl = ctypes.windll.kernel32.CreateSymbolicLinkW
+      csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+      csl.restype = ctypes.c_ubyte
+      __CSL = csl
+    flags = 0
+    if source is not None and os.path.isdir(source):
+      flags = 1
+    if __CSL(link_name, source, flags) == 0:
+      raise ctypes.WinError()
+
+  def islink(path):
+    assert path
+    if GetFileAttributes(path) & FILE_ATTRIBUTE_REPARSE_POINT:
+      return True
+    else:
+      return False
+
+  os.symlink = symlink
+  os.path.islink = islink
+
+
+def _roaming_path(*components):
+  """ Path in roaming folder for 'components' (relative) """
+  return os.path.join(ROAMING, *components)
+
+def _delete(report, path, commit):
+  """ Delete file/folder with 'path' """
+  if report.errors:
+    return report
+  if not os.path.exists(path) and not os.path.islink(path):
+    return
+  if commit:
+    report.log("Deleting %s", path)
+    if os.path.isfile(path) or os.path.islink(path):
+      os.unlink(path)
+    else:
+      shutil.rmtree(path)
+  else:
+    report.log("Will delete %s", path)
+  return report
+
+def _symlink(report, local, roaming, commit):
+  """ Create symlink local -> roaming """
+  if report.errors:
+    return report
+  if not os.path.exists(roaming) and commit:
+    return report.error("%s does not exist", roaming)
+  if commit:
+    report.log("Creating symlink %s -> %s", local, roaming)
+    os.symlink(roaming, local)
+  else:
+    report.log("Will create symlink %s -> %s", local, roaming)
+  return report
+
+def _copy(report, source, dest, commit):
+  """ Copy file/folder 'source' -> 'dest' """
+  if report.errors:
+    return report
+  if not os.path.exists(source):
+    return report.error("%s does not exist", source)
+  if commit:
+    report.log("Copying %s -> %s", source, dest)
+    parent = os.path.dirname(dest)
+    if not os.path.isdir(parent):
+      os.makedirs(parent)
+    if os.path.isdir(source):
+      shutil.copytree(source, dest, symlinks=False)
+    else:
+      shutil.copy(source, dest)
+  else:
+    report.log("Will copy %s -> %s", source, dest)
+  return report
+
+def _roam(report, local, roaming, commit):
+  """ Link 'local' to 'roaming', if 'roaming' does not exist, create it from the contents of 'local', then delete local and link to roaming """
+  local = os.path.expanduser(local)
+  roaming = os.path.expanduser(roaming)
+  if os.path.islink(local):
+    if os.path.realpath(local) == roaming or PLATFORM_SYSTEM == 'windows':
+      # FIXME: Need a good implementation for os.path.realpath on Windows
+      return report.info("OK %s -> %s", local, roaming)
+  if not os.path.exists(roaming):
+    _copy(report, local, roaming, commit)   # Initialize roaming from local
+  _delete(report, local, commit)
+  _symlink(report, local, roaming, commit)
+  return report
+
+
+class Report(object):
+  """ Simple reporting """
+
+  def __init__(self, title=''):
+    self.title = title
+    self.messages = []
+    self.logs = 0
+    self.errors = 0
+
+  def _log(self, msg, *args):
+    if args:
+      msg = msg % args
+    if self.title:
+      msg = self.title + ': ' + msg
+    msg = msg.replace(HOME, '~')
+    self.messages.append(msg)
+    return self
+
+  def info(self, msg, *args):
+    return self._log(msg, *args)
+
+  def log(self, msg, *args):
+    self.logs += 1
+    return self._log(msg, *args)
+
+  def error(self, msg, *args):
+    self.errors += 1
+    return self._log(msg, *args)
+
+  def add(self, other):
+    if not other:
+      return
+    self.logs += other.logs
+    self.errors += other.errors
+    for m in other.messages:
+      self.messages.append(m)
+
+  def __str__(self):
+    return '\n'.join(self.messages)
+
+
+class SublimeText2(object):
+  """ Roam Sublime Text 2 settings. """
+
+  def __init__(self):
+    self.local_path = None
+    if PLATFORM_SYSTEM == 'linux':
+      self.local_path = '~/.config/sublime-text-2'
+    elif PLATFORM_SYSTEM == 'darwin':
+      self.local_path = '~/Library/Application Support/Sublime Text 2'
+    elif PLATFORM_SYSTEM == 'windows':
+      if 'APPDATA' in os.environ:
+        self.local_path = os.path.join(os.environ['APPDATA'], 'Sublime Text 2')
+    if self.local_path:
+      self.local_path = os.path.expanduser(self.local_path)
+    self.roaming_path = _roaming_path('ST2')
+
+  def _roam_folder(self, report, folder, commit):
+    local = os.path.join(self.local_path, folder)
+    roaming = os.path.join(self.roaming_path, folder)
+    return _roam(report, local, roaming, commit)
+
+  def setup(self, commit):
+    rep = Report("ST2")
+    if not self.local_path:
+      return rep.error("Can't determine where ST2 settings live on this platform")
+    if not os.path.isdir(self.local_path):
+      rep.error("ST2 not found in %s", self.local_path)
+      return rep.error("Please install ST2 and run it at least once, then try this script again")
+    self._roam_folder(rep, 'Installed Packages', commit)
+    self._roam_folder(rep, 'Packages', commit)
+    self._roam_folder(rep, 'Pristine Packages', commit)
+    return rep
+
+def shell_setup(commit):
+  """ Roam ~/.inputrc. """
+  rep = Report('shell')
+  if PLATFORM_SYSTEM != 'windows':
+    _roam(rep, "~/.inputrc", _roaming_path('bash', 'inputrc'), commit)
+  else:
+    rep.info("Skipped on windows")
+  return rep
+
+def ssh_setup(commit):
+  """ Roam ~/.ssh/config. """
+  rep = Report('ssh')
+  if PLATFORM_SYSTEM != 'windows':
+    _roam(rep, "~/.ssh/config", _roaming_path('ssh', 'config'), commit)
+  else:
+    rep.info("Skipped on windows")
+  return rep
+
+def main():
+
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument('--st2', action='store_true', help=SublimeText2.__doc__)
+  parser.add_argument('--shell', action='store_true', help=shell_setup.__doc__)
+  parser.add_argument('--ssh', action='store_true', help=ssh_setup.__doc__)
+
+  all_options = [a.option_strings[0] for a in parser._actions if len(a.option_strings) == 1 and a.option_strings[0].startswith('--')]
+  all_options = ' '.join(all_options)
+  parser.add_argument('-a', '--all', dest='roam_all', action='store_true', help="Roam all settings (same as: " + all_options + ").")
+  parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
+
+  args = parser.parse_args()
+
+  report = Report()
+  if args.st2 or args.roam_all:
+    s = SublimeText2()
+    report.add(s.setup(args.commit))
+  if args.shell or args.roam_all:
+    report.add(shell_setup(args.commit))
+  if args.ssh or args.roam_all:
+    report.add(ssh_setup(args.commit))
+
+  if not report.messages:
+    print "Specify which settings to roam (see -h)\nAvailable options: %s" % all_options
+  else:
+    print report
+    if not args.commit and report.logs and not report.errors:
+      print "Use -c to effectively perform these changes"
+    elif not report.logs and not report.errors:
+      print "All good"
+
+if __name__ == "__main__":
+  main()
