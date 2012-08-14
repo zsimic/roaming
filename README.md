@@ -15,6 +15,7 @@ Currently, the roaming of the following settings is supported (easy to add more)
   in `~/GoogleDrive/roaming` instead of `~/Dropbox/roaming`, simply move the roaming folder to the new location and rerun the script from there
 - it was tested on linux (redhat, fedora), OSX and Windows 7
   (limited support for Windows, it works but the script can't relocate your settings, need a good implementation of `os.path.realpath` on Windows for that)
+- on Windows, you need to run this in a **DOS console** started with **Run as administrator** (the calls to make symlinks require that...)
 
 How to use this script
 ======================
