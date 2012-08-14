@@ -102,7 +102,7 @@ You should now have your `~/.inputrc` and `~/.ssh/config` symlinked to the roami
 
 Apply the roaming from another machine (note: the copy step from first run isn't there anymore):
 
-    *~/Dropbox/roaming*: ./setup --shell --ssh -c
+    ~/Dropbox/roaming: ./setup --shell --ssh -c
     shell: Deleting ~/.inputrc
     shell: Creating symlink ~/.inputrc -> ~/Dropbox/roaming/bash/inputrc
     ssh: Deleting ~/.ssh/config
