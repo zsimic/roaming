@@ -33,15 +33,11 @@ How to use this script
  - deletes the local file (or folder)
  - creates symlinks from local to roaming
 
-So, this is what you would do the first time around for example:
+Quick example of how to use it, first put the script in a cloud-synced folder:
 
     git clone https://github.com/zsimic/roaming.git ~/Dropbox/roaming
-    ~/Dropbox/roaming/setup -a
-        # Check what the script would do
-    ~/Dropbox/roaming/setup -a -c
-        # Effectively perform the symlinking
 
-Subsequent runs (on all the other machines) would look like this:
+Then run the script from there:
 
     ~/Dropbox/roaming/setup -a
         # Check what the script would do
