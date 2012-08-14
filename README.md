@@ -11,7 +11,10 @@ Currently, the roaming of the following settings is supported (easy to add more)
 - Sublime Text 2 settings (all settings, including installed packages)
 - `~/.inputrc`
 - `~/.ssh/config`
-- it was tested on linux (redhat, fedora), OSX and Windows 7 (limited support for Windows, it works but the script can't relocate your settings)
+- the script can relocate the settings too (on unix platforms), if you change your mind and want the settings
+  in `~/GoogleDrive/roaming` instead of `~/Dropbox/roaming`, simply move the roaming folder to the new location and rerun the script from there
+- it was tested on linux (redhat, fedora), OSX and Windows 7
+  (limited support for Windows, it works but the script can't relocate your settings, need a good implementation of `os.path.realpath` on Windows for that)
 
 How to use this script
 ======================
