@@ -159,7 +159,7 @@ class Report(object):
 
 
 class SublimeText2(object):
-  """ Roam Sublime Text 2 settings. """
+  """ Roam Sublime Text 2 settings """
 
   def __init__(self):
     self.local_path = None
@@ -192,16 +192,29 @@ class SublimeText2(object):
     return rep
 
 def shell_setup(commit):
-  """ Roam ~/.inputrc. """
+  """ Roam ~/.inputrc, ~/.tmux.conf, ~/.screenrc and ~/.vimrc """
   rep = Report('shell')
   if PLATFORM_SYSTEM != 'windows':
     _roam(rep, "~/.inputrc", _roaming_path('bash', 'inputrc'), commit)
+    _roam(rep, "~/.tmux.conf", _roaming_path('bash', 'tmux.conf'), commit)
+    _roam(rep, "~/.screenrc", _roaming_path('bash', 'screenrc'), commit)
+    _roam(rep, "~/.vimrc", _roaming_path('bash', 'vimrc'), commit)
+  else:
+    rep.info("Skipped on windows")
+  return rep
+
+def bashrc_setup(commit):
+  """ Roam ~/.bashrc and ~/.profile """
+  rep = Report('shell')
+  if PLATFORM_SYSTEM != 'windows':
+    _roam(rep, "~/.bashrc", _roaming_path('bash', 'bashrc'), commit)
+    _roam(rep, "~/.profile", _roaming_path('bash', 'profile'), commit)
   else:
     rep.info("Skipped on windows")
   return rep
 
 def ssh_setup(commit):
-  """ Roam ~/.ssh/config. """
+  """ Roam ~/.ssh/config """
   rep = Report('ssh')
   if PLATFORM_SYSTEM != 'windows':
     _roam(rep, "~/.ssh/config", _roaming_path('ssh', 'config'), commit)
@@ -214,6 +227,7 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--st2', action='store_true', help=SublimeText2.__doc__)
   parser.add_argument('--shell', action='store_true', help=shell_setup.__doc__)
+  parser.add_argument('--bashrc', action='store_true', help=bashrc_setup.__doc__)
   parser.add_argument('--ssh', action='store_true', help=ssh_setup.__doc__)
 
   all_options = [a.option_strings[0] for a in parser._actions if len(a.option_strings) == 1 and a.option_strings[0].startswith('--')]
@@ -229,6 +243,8 @@ def main():
     report.add(s.setup(args.commit))
   if args.shell or args.roam_all:
     report.add(shell_setup(args.commit))
+  if args.bashrc or args.roam_all:
+    report.add(bashrc_setup(args.commit))
   if args.ssh or args.roam_all:
     report.add(ssh_setup(args.commit))
 
