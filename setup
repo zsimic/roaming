@@ -222,6 +222,15 @@ def ssh_setup(commit):
     rep.info("Skipped on windows")
   return rep
 
+def osx_setup(commit):
+  """ Roam OSX specific settings: ~/Library/KeyBindings """
+  rep = Report('osx')
+  if PLATFORM_SYSTEM == 'darwin':
+    _roam(rep, "~/Library/KeyBindings", _roaming_path('osx', 'KeyBindings'), commit)
+  else:
+    rep.info("Skipped on %s" % PLATFORM_SYSTEM)
+  return rep
+
 def main():
 
   parser = argparse.ArgumentParser(description=__doc__)
@@ -229,6 +238,8 @@ def main():
   parser.add_argument('--shell', action='store_true', help=shell_setup.__doc__)
   parser.add_argument('--bashrc', action='store_true', help=bashrc_setup.__doc__)
   parser.add_argument('--ssh', action='store_true', help=ssh_setup.__doc__)
+  if PLATFORM_SYSTEM == 'darwin':
+    parser.add_argument('--osx', action='store_true', help=osx_setup.__doc__)
 
   all_options = [a.option_strings[0] for a in parser._actions if len(a.option_strings) == 1 and a.option_strings[0].startswith('--')]
   all_options = ' '.join(all_options)
@@ -247,6 +258,9 @@ def main():
     report.add(bashrc_setup(args.commit))
   if args.ssh or args.roam_all:
     report.add(ssh_setup(args.commit))
+  if PLATFORM_SYSTEM == 'darwin':
+    if args.osx or args.roam_all:
+      report.add(osx_setup(args.commit))
 
   if not report.messages:
     print "Specify which settings to roam (see -h)\nAvailable options: %s" % all_options
