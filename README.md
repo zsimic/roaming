@@ -14,9 +14,15 @@ Currently, the roaming of the following settings is supported (easy to add more)
 - OSX: `~/Library/KeyBindings`
 - the script can relocate the settings too (on unix platforms), if you change your mind and want the settings
   in `~/GoogleDrive/roaming` instead of `~/Dropbox/roaming`, simply move the roaming folder to the new location and rerun the script from there
-- it was tested on linux (redhat, fedora), OSX and Windows 7
-  (limited support for Windows, it works but the script can't relocate your settings, need a good implementation of `os.path.realpath` on Windows for that)
-- on Windows, you need to run this in a **DOS console** started with **Run as administrator** (the calls to make symlinks require that...)
+- it was tested on linux (redhat, fedora), OSX.
+
+Windows:
+- Can't test successfully on Windows 7 anymore, tried with ActivePython 64 bit, it stopped working...
+- If you care about Windows and know how to fix this, I welcome any patches :)
+- There's limited support for Windows (when it works):
+ - only Sublime Text makes sense (don't use cygwin, don't know if any of the other things would apply to cygwin...)
+ - you need to run this in a **DOS console** started with **Run as administrator** (the calls to make symlinks require that...)
+ - the script can't relocate your settings, need a good implementation of `os.path.realpath` on Windows for that
 
 How to use this script
 ======================
