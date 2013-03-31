@@ -511,7 +511,7 @@ def main():
   runner = RoamingRunner()
 
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('--list', action='store_true', help="List what can be specified as what to roam (show only compatible with current platform).")
+  parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
   parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
   parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
 

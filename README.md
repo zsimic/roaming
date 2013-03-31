@@ -9,7 +9,7 @@ I use a bunch of different machines, and many things can be setup so that changi
 Currently, the roaming of the following settings is supported (easy to add more):
 
 - Sublime Text 2 and 3 settings (all settings, including installed packages)
-- shell: `~/.bashrc`, `~/.profile`, `~/.inputrc`, `~/.vimrc`, `~/.tmux`, `~/.screenrc`
+- shell: `~/.bashrc`, `~/.profile`, `~/.inputrc`, `~/.vimrc`, `~/.tmux.conf`, `~/.screenrc`
 - ssh: `~/.ssh/config`
 - OSX: `~/Library/KeyBindings`
 - the script can relocate the settings too (on unix platforms), if you change your mind and want the settings
@@ -21,7 +21,7 @@ Currently, the roaming of the following settings is supported (easy to add more)
 How to use this script
 ======================
 
-- get a copy of the script and put in the Dropbox folder (or any other similar service) where you want your settings kept, I use `~/Dropbox/roaming` for example
+- get a copy of the script and put it in the Dropbox folder (or any other similar service) where you want your settings kept, I use `~/Dropbox/roaming` for example
 - the script uses the folder where you ran it from as the roaming folder, so you don't have to configure anything:
   just drop the script in the Dropbox (or similar) folder where you want your settings kept and run it from there
 - the script performs changes only when `-c` (or `--commit`) is specified on the command line (so that nothing gets changed by mistake),
@@ -48,7 +48,7 @@ Then run the script from there:
 See `--help` for help:
 
     ./setup --help
-    usage: setup [-h] [--list] [-c] [what [what ...]]
+    usage: setup [-h] [-l] [-c] [what [what ...]]
 
     Roam settings for ST2, ST3, shell settings etc.
 
@@ -57,8 +57,7 @@ See `--help` for help:
 
     optional arguments:
       -h, --help    show this help message and exit
-      --list        List what can be specified as what to roam (show only
-                    compatible with current platform).
+      -l, --list    List what can be specified as what to roam.
       -c, --commit  Commit changes.
 
 Illustration
