@@ -132,3 +132,6 @@ You can refer to specific files or to entire sections indifferently.
 
 If you define such a `default.cfg` file, you can then simply run `./setup` (to check what would be done)
 and `./setup -c` (to effectively apply) on each machine, without having to remember each time which settings to specify...
+
+Note: a special section `all` is understood by the program, and it simply expands to everything that can be roamed by this program.
+You can use `all` on the command line, or in a `.cfg` file.
