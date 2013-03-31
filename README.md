@@ -113,7 +113,7 @@ For convenience, you can create a file `default.cfg` next to the `setup` script 
 and list in that file what you want roamed by default (when running `setup` without any command line argument).
 This can be very handy: you write `default.cfg` once, and then simply run `setup` on any new machine you get...
 
-Example contents of `default.cfg` (see also `bash.cfg` in this repo as another example),
+Example contents of `default.cfg` (see also `bash.cfg` in this repo as another example: https://github.com/zsimic/roaming/blob/master/bash.cfg),
 if you decide for example to roam only `~/.bashrc`, `~/.tmux.conf`, `ssh` and `Sublime Text 3` settings:
 
     # My roaming settings:
@@ -131,4 +131,4 @@ Note that above:
 You can refer to specific files or to entire sections indifferently.
 
 If you define such a `default.cfg` file, you can then simply run `./setup` (to check what would be done)
-and `./setup -c` on each machine, without having to remember each time which settings to specify...
+and `./setup -c` (to effectively apply) on each machine, without having to remember each time which settings to specify...
