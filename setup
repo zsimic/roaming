@@ -441,6 +441,54 @@ class RoamingRunner(object):
       if section.has_roamable(name):
         return True
 
+  def _add_to_settings(self, settings, what):
+    """
+      @param Settings settings: Settings to add to
+      @param str what: What to add to 'settings'
+    """
+    if self.has_roamable(what):
+      settings.add_active(what)
+      return
+    if what == 'all':
+      s = self.all_settings()
+    else:
+      s = self.settings_from_file(what)
+    if s:
+      for a in s.active:
+        settings.add_active(a)
+    else:
+      _abort("Nothing corresponds to '%s' and no file '%s.cfg' found, typo?", what, what)
+
+  def settings_from_file(self, name):
+    """
+    @param str name: File name containing the settings
+    @return Settings: Settings defined in file, if any
+    """
+    if not name:
+      return None
+    fpath = _roaming_path(name + '.cfg')
+    if not os.path.exists(fpath):
+      return None
+    try:
+      settings = Settings(name)
+      with open(fpath) as fh:
+        in_roam_section = False
+        for line in fh.readlines():
+          line = line.strip()
+          if not line or line.startswith('#'):
+            continue
+          if line.startswith('['):
+            in_roam_section = line == '[roam]'
+            continue
+          if not in_roam_section:
+            continue
+          self._add_to_settings(settings, line)
+      return settings
+    except Exception as e:
+      print "Can't read file %s: %s" % (fpath, e)
+
+    return None
+
 
 class Settings(object):
   """ Settings specifying what to roam """
@@ -465,57 +513,12 @@ class Settings(object):
       self.active.append(name.lower())
 
 
-def settings_from_file(name):
-  if not name:
-    return None
-  fpath = _roaming_path(name + '.cfg')
-  if not os.path.exists(fpath):
-    return None
-  try:
-    settings = Settings(name)
-    with open(fpath) as fh:
-      in_roam_section = False
-      for line in fh.readlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
-          continue
-        if line.startswith('['):
-          in_roam_section = line == '[roam]'
-          continue
-        if not in_roam_section:
-          continue
-        settings.add_active(line)
-    return settings
-  except Exception as e:
-    print "Can't read file %s: %s" % (fpath, e)
-
-  return None
-
 def _abort(message, *args):
   if args:
     message = message % args
   print message
   print "See --help and/or --list for instructions"
   sys.exit(1)
-
-def _add_to_settings(runner, settings, what):
-  """
-    @param RoamingRunner runner: Runner used to determine whether 'what' is referring to a particular thing or a file
-    @param Settings settings: Settings to add to
-    @param str what: What to add to 'settings'
-  """
-  if runner.has_roamable(what):
-    settings.add_active(what)
-    return
-  if what == 'all':
-    s = runner.all_settings()
-  else:
-    s = settings_from_file(what)
-  if s:
-    for a in s.active:
-      settings.add_active(a)
-  else:
-    _abort("Nothing corresponds to '%s' and no file '%s.cfg' found, typo?", what, what)
 
 def main():
 
@@ -535,12 +538,12 @@ def main():
   if args.what:
     settings = Settings('command line')
     for what in args.what:
-      _add_to_settings(runner, settings, what)
+      runner._add_to_settings(settings, what)
     if not settings.active:
       _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
 
   else:
-    settings = settings_from_file('default')
+    settings = runner.settings_from_file('default')
 
   if settings:
     report = runner.setup(settings, args.commit)
