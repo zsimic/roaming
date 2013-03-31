@@ -64,10 +64,10 @@ Illustration
 ============
 
 Roam `~/.inputrc` and `~/.ssh/config` for example
-(not showing ST2 here for brevity, the paths involved for ST2 are very long and don't show well here... the principle is the same).
+(not showing everything here for brevity, the paths involved for Sublime Text for example are very long... the principle is the same).
 
 First check how things are currently on the machine
-(this example shows what would happen the first time you ever run this script, with the inital push of your local settings to the roaming folder):
+(this example below shows what would happen the first time you ever run this script, with the initial push of your local settings to the roaming folder):
 
     ~/Dropbox/roaming: ./setup inputrc ssh
     shell: Will copy ~/.inputrc -> ~/Dropbox/roaming/bash/inputrc
@@ -114,18 +114,21 @@ and list in that file what you want roamed by default (when running `setup` with
 This can be very handy: you write `default.cfg` once, and then simply run `setup` on any new machine you get...
 
 Example contents of `default.cfg` (see also `bash.cfg` in this repo as another example),
-if you decide for example to roam only `~/.bashrc`, `~/.tmux.conf`, ssh and Sublime Text 3 settings:
+if you decide for example to roam only `~/.bashrc`, `~/.tmux.conf`, `ssh` and `Sublime Text 3` settings:
 
     # My roaming settings:
     [roam]
     bashrc
     tmux.conf
     ssh
-    st3
+    ST3
 
 Note that above:
-- `~/.bashrc`, `~/.tmux.conf` are single files, part of a section called 'shell'
+- `~/.bashrc`, `~/.tmux.conf` are single files, part of a section called `shell`
 - `ssh` is a section (group of files)
-- 'st3' is a section (group of files)
+- `ST3` is a section (group of files)
 
 You can refer to specific files or to entire sections indifferently.
+
+If you define such a `default.cfg` file, you can then simply run `./setup` (to check what would be done)
+and `./setup -c` on each machine, without having to remember each time which settings to specify...
