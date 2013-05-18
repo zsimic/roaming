@@ -4,7 +4,6 @@
 Roam settings for ST2, ST3, shell settings etc.
 """
 
-import argparse
 import os
 import platform
 import shutil
@@ -294,8 +293,11 @@ class ShellSection(Section):
   def __init__(self):
     super(ShellSection, self).__init__('shell')
     self.platforms = [P_LINUX, P_OSX]
-    self.add_simple_file_spec('bashrc', "Interactive bash settings")
-    self.add_simple_file_spec('profile', "User environment customization")
+    self.add_simple_file_spec('zshrc', "zsh settings")
+    self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout")
+    self.add_simple_file_spec('bashrc', "bash session settings")
+    self.add_simple_file_spec('bashrc_profile', "bash login settings")
+    self.add_simple_file_spec('profile', "Shell login settings")
     self.add_simple_file_spec('inputrc', "Readline library configuration")
     self.add_simple_file_spec('vimrc', "VIm configuration")
     self.add_simple_file_spec('tmux.conf', "tmux configuration")
@@ -321,6 +323,7 @@ class OSXSection(Section):
     super(OSXSection, self).__init__('osx')
     self.platforms = [P_OSX]
     self.add_spec('KeyBindings', '~/Library/KeyBindings', 'Cocoa key bindings (~/Library/KeyBindings)')
+    self.add_spec('iTerm/com.googlecode.iterm2.plist', '~/Library/Preferences/com.googlecode.iterm2.plist', 'iTerm2 settings')
 
 
 class SublimeSection(Section):
@@ -523,13 +526,24 @@ def _abort(message, *args):
 def main():
 
   runner = RoamingRunner()
+  args = None
 
-  parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
-  parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
-  parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
+  try:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
+    parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
+    parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
+    args = parser.parse_args()
 
-  args = parser.parse_args()
+  except ImportError:
+    # Unfortunately, python 2.6 doesn't come with argparse
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
+    parser.add_option('-c', '--commit', action='store_true', help="Commit changes.")
+    (args, positionals) = parser.parse_args()
+    args.what = positionals
 
   if args.list:
     print runner.help()
