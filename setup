@@ -270,6 +270,8 @@ class Section(object):
     for spec in self.specs:
       if not do_entire_section and not settings.is_active(spec.name):
         continue
+      if spec.name in settings.exclude:
+        continue
       match_count += 1
       if platform_supported:
         rep.add(spec.setup(commit))
@@ -302,6 +304,7 @@ class ShellSection(Section):
     self.add_simple_file_spec('vimrc', "VIm configuration")
     self.add_simple_file_spec('tmux.conf', "tmux configuration")
     self.add_simple_file_spec('screenrc', "screen configuration")
+    self.add_simple_file_spec('ackrc', "ack configuration")
 
 
 class SshSection(Section):
@@ -449,6 +452,9 @@ class RoamingRunner(object):
       @param Settings settings: Settings to add to
       @param str what: What to add to 'settings'
     """
+    if what.startswith('-'):
+      settings.add_exclude(what[1:])
+      return
     if self.has_roamable(what):
       settings.add_active(what)
       return
@@ -501,9 +507,14 @@ class Settings(object):
     self.name = name
     #: Active settings, to be roamed
     self.active = []
+    #: Settings to skip
+    self.exclude = set()
 
   def __repr__(self):
-    return '(%s) %s' % (self.name, ' '.join(self.active))
+    result = '(%s) %s' % (self.name, ' '.join(self.active))
+    if self.exclude:
+      result = '%s [ex: %s]' % (result, ' '.join(sorted(self.exclude)))
+    return result
 
   def is_active(self, name):
     return name.lower() in self.active
@@ -515,6 +526,12 @@ class Settings(object):
     else:
       self.active.append(name.lower())
 
+  def add_exclude(self, name):
+    if isinstance(name, list):
+      for s in name:
+        self.add_exclude(s)
+    else:
+      self.exclude.add(name)
 
 def _abort(message, *args):
   if args:
@@ -526,7 +543,6 @@ def _abort(message, *args):
 def main():
 
   runner = RoamingRunner()
-  args = None
 
   try:
     import argparse
