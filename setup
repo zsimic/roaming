@@ -168,7 +168,7 @@ class Report(object):
 class Spec(object):
   """ File or folder roaming spec """
 
-  def __init__(self, section, name, local_path, doc):
+  def __init__(self, section, name, local_path, doc, copy_only=False):
     #: Parent section, defines which roaming subfolder this should go under
     self.section = section
     #: Name of the file or folder roamed
@@ -178,10 +178,23 @@ class Spec(object):
     # Full path to roaming file (inside roaming folder)
     self.roaming_path = _roaming_path(self.section.folder, self.name)
     #: Short explanation of what the file/folder is
-    self.doc = doc
+    self.doc = doc or ''
+    if copy_only:
+      self.doc = '[Copy] %s' % self.doc
+
+    short_local_path = _short_path(local_path)
+    if short_local_path not in self.doc:
+      self.doc = '%s (%s)' % (self.doc.strip(), short_local_path)
+
+    #: Copy the file from roaming <-> local when True (instead of symlinking local -> roaming)
+    self.copy_only = copy_only
 
   def __repr__(self):
-    return '%s -> %s' % (_short_path(self.local_path), _short_path(_roaming_path(self.section.folder, self.name)))
+    source = _short_path(self.local_path)
+    dest = _short_path(_roaming_path(self.section.folder, self.name))
+    if self.copy_only:
+      return '%s <-> %s' % (dest, source)
+    return '%s -> %s' % (source, dest)
 
   def setup(self, commit):
     """
@@ -192,6 +205,41 @@ class Spec(object):
       @return Report: Report on how setup went, what was done or would be done if 'commit' was True
     """
     report = Report(self.section.folder)
+    if self.copy_only:
+      report.title += '+'
+      needs_copy = True
+      if not os.path.exists(self.roaming_path) and os.path.exists(self.local_path):
+        # First time we roam this copy_only file, seed the roaming folder with it
+        needs_copy = False
+        _copy(report, self.local_path, self.roaming_path, commit)
+        if commit:
+          # Make sure last modification time is preserved
+          shutil.copystat(self.local_path, self.roaming_path)
+      if os.path.islink(self.local_path):
+        # Local path shouldn't be a symlink, probably left-over from earlier mistaken roaming
+        # Example: OSX KeyBindings used to be symlinked but not anymore (sandboxed apps can't read it when symlinked)
+        needs_copy = True
+        _delete(report, self.local_path, commit)
+      if not needs_copy:
+        # First copy took care of things, we don't need to continue
+        return report
+      if not os.path.exists(self.roaming_path):
+        return report.info("Skipping %s, no local and no roaming file", self.local_path)
+      if os.path.exists(self.local_path):
+        time_diff = os.path.getmtime(self.roaming_path) - os.path.getmtime(self.local_path)
+        if abs(time_diff) < 5:
+          report.info("OK %s <-> %s", self.roaming_path, self.local_path)
+        elif time_diff > 0:
+          # Roaming copy is younger
+          _copy(report, self.roaming_path, self.local_path, commit)
+        else:
+          # Local copy is younger
+          _copy(report, self.local_path, self.roaming_path, commit)
+      else:
+        # First roaming -> local copy
+        _copy(report, self.roaming_path, self.local_path, commit)
+      return report
+
     if os.path.islink(self.local_path):
       if os.path.realpath(self.local_path) == self.roaming_path or PLATFORM_SYSTEM == P_WINDOWS:
         # FIXME: Need a good implementation for os.path.realpath on Windows
@@ -236,26 +284,28 @@ class Section(object):
         return True
     return False
 
-  def add_spec(self, name, local_path, doc):
+  def add_spec(self, name, local_path, doc=None, copy_only=False):
     """
       @param str name: Name of the file or folder roamed
       @param str local_path: Full path to local file (outside of roaming folder)
-      @param str doc: Short Short explanation of what the file/folder is
+      @param str, None doc: Short Short explanation of what the file/folder is
+      @param bool copy_only: When true, copy files roaming <-> local, instead of creating a local -> roaming symlink
     """
-    spec = Spec(self, name, local_path, doc)
+    spec = Spec(self, name, local_path, doc, copy_only)
     self.specs.append(spec)
 
-  def add_simple_file_spec(self, name, doc, local_path=None):
+  def add_simple_file_spec(self, name, doc=None, local_path=None, copy_only=False):
     """
       @param str name: Name of the file or folder roamed
-      @param str doc: Short Short explanation of what the file/folder is
+      @param str, None doc: Short Short explanation of what the file/folder is
       @param str local_path: Full path to local file (outside of roaming folder), default ~/.<name>
+      @param bool copy_only: When true, copy files roaming <-> local, instead of creating a local -> roaming symlink
     """
     if not local_path:
       local_path = os.path.join(HOME, '.' + name)
-      doc = '%s (%s)' % (doc, _short_path(local_path))
+
     local_path = os.path.expanduser(local_path)
-    self.add_spec(name, local_path, doc)
+    self.add_spec(name, local_path, doc, copy_only)
 
   def setup(self, settings, commit):
     """
@@ -315,8 +365,8 @@ class SshSection(Section):
     self.platforms = [P_LINUX, P_OSX]
     self.add_ssh_file('config', "ssh configuration (~/.ssh/config)")
 
-  def add_ssh_file(self, name, doc):
-    self.add_spec(name, os.path.join(HOME, '.ssh', name), doc)
+  def add_ssh_file(self, name, doc=None, copy_only=False):
+    self.add_spec(name, os.path.join(HOME, '.ssh', name), doc, copy_only)
 
 
 class OSXSection(Section):
@@ -325,7 +375,7 @@ class OSXSection(Section):
   def __init__(self):
     super(OSXSection, self).__init__('osx')
     self.platforms = [P_OSX]
-    self.add_spec('KeyBindings', '~/Library/KeyBindings', 'Cocoa key bindings (~/Library/KeyBindings)')
+    self.add_spec('DefaultKeyBinding.dict', '~/Library/KeyBindings/DefaultKeyBinding.dict', copy_only=True)
     self.add_spec('iTerm/com.googlecode.iterm2.plist', '~/Library/Preferences/com.googlecode.iterm2.plist', 'iTerm2 settings')
 
 
@@ -575,26 +625,24 @@ def main():
   else:
     settings = runner.settings_from_file('default')
 
-  if settings:
-    report = runner.setup(settings, args.commit)
-
-  else:
+  if not settings:
     print "Specify which settings to roam (see --help)"
     print "You can also create a 'default.cfg' file in the roaming folder (%s)" % ROAMING_ROOT
     print "See 'bash.cfg' for an example of how to write a 'default.cfg' file"
     sys.exit(1)
 
+  report = runner.setup(settings, args.commit)
+
   if not report.messages:
     _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
 
-  else:
-    print report
+  print report
 
-    if not args.commit and report.logs and not report.errors:
-      print "Use -c to effectively perform these changes"
+  if not args.commit and report.logs and not report.errors:
+    print "Use -c to effectively perform these changes"
 
-    elif not report.logs and not report.errors:
-      print "All good"
+  elif not report.logs and not report.errors:
+    print "All good"
 
 if __name__ == "__main__":
   if not HOME:
