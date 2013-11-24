@@ -121,6 +121,7 @@ def _copy(report, source, dest, commit):
       shutil.copytree(source, dest, symlinks=False)
     else:
       shutil.copy(source, dest)
+      shutil.copystat(source, dest)   # Make sure last modification time is preserved
   else:
     report.log("Will copy %s -> %s", source, dest)
   return report
@@ -212,14 +213,17 @@ class Spec(object):
         # First time we roam this copy_only file, seed the roaming folder with it
         needs_copy = False
         _copy(report, self.local_path, self.roaming_path, commit)
-        if commit:
-          # Make sure last modification time is preserved
-          shutil.copystat(self.local_path, self.roaming_path)
       if os.path.islink(self.local_path):
         # Local path shouldn't be a symlink, probably left-over from earlier mistaken roaming
         # Example: OSX KeyBindings used to be symlinked but not anymore (sandboxed apps can't read it when symlinked)
         needs_copy = True
         _delete(report, self.local_path, commit)
+      elif os.path.islink(os.path.dirname(self.local_path)):
+        # Sprecial case with previous symlinking of KeyBindings by this very script...
+        # This script used to symlink ~/Library/KeyBindings -> roaming (instead of ~/Library/KeyBindings/DefaultKeyBinding.dict)
+        needs_copy = True
+        _delete(report, os.path.dirname(self.local_path), commit)
+
       if not needs_copy:
         # First copy took care of things, we don't need to continue
         return report
