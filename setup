@@ -359,6 +359,7 @@ class ShellSection(Section):
     self.add_simple_file_spec('tmux.conf', "tmux configuration")
     self.add_simple_file_spec('screenrc', "screen configuration")
     self.add_simple_file_spec('ackrc', "ack configuration")
+    self.add_simple_file_spec('agignore', "~/.agignore file")
 
 
 class SshSection(Section):
