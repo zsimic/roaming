@@ -378,7 +378,16 @@ class ShellSection(Section):
     self.add_simple_file_spec('screenrc', "screen configuration")
     self.add_simple_file_spec('ackrc', "ack configuration")
     self.add_simple_file_spec('agignore', "~/.agignore file")
+
+
+class GitSection(Section):
+  """ Shell specific settings """
+
+  def __init__(self):
+    super(GitSection, self).__init__('git')
+    self.platforms = [P_CYGWIN, P_LINUX, P_OSX]
     self.add_simple_file_spec('gitconfig', "~/.gitconfig file")
+    self.add_simple_file_spec('gitignore_global', "~/.gitignore_global file (if you like to have a global git ignore)")
 
 
 class SshSection(Section):
@@ -465,6 +474,7 @@ class RoamingRunner(object):
   def __init__(self):
     self.sections = []
     self.sections.append(ShellSection())
+    self.sections.append(GitSection())
     self.sections.append(Sublime2Section())
     self.sections.append(Sublime3Section())
     self.sections.append(SshSection())

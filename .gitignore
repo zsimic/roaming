@@ -1,6 +1,7 @@
 .DS_Store
 .idea
 default.cfg
+git
 misc
 oh-my-zsh
 osx
