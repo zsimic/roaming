@@ -106,7 +106,10 @@ def _delete(report, path, commit):
     if os.path.isfile(path) or os.path.islink(path):
       os.unlink(path)
     else:
-      shutil.rmtree(path)
+      try:
+        shutil.rmtree(path)
+      except Exception as e:
+        report.error("Can't delete [%s]: %s", path, e)
   else:
     report.log("Will delete %s", path)
   return report
@@ -119,7 +122,10 @@ def _symlink(report, local, roaming, commit):
     return report.error("%s does not exist", roaming)
   if commit:
     report.log("Creating symlink %s -> %s", local, roaming)
-    os.symlink(roaming, local)
+    try:
+      os.symlink(roaming, local)
+    except Exception as e:
+      report.error("Can't symlink [%s] -> [%s]: %s", local, roaming, e)
   else:
     report.log("Will create symlink %s -> %s", local, roaming)
   return report
@@ -134,12 +140,24 @@ def _copy(report, source, dest, commit):
     report.log("Copying %s -> %s", source, dest)
     parent = os.path.dirname(dest)
     if not os.path.isdir(parent):
-      os.makedirs(parent)
+      try:
+        os.makedirs(parent)
+      except Exception as e:
+        report.error("Can't create [%s]: %s", path, e)
     if os.path.isdir(source):
-      shutil.copytree(source, dest, symlinks=False)
+      try:
+        shutil.copytree(source, dest, symlinks=False)
+      except Exception as e:
+        report.error("Can't copy [%s] -> [%s]: %s", source, dest, e)
     else:
-      shutil.copy(source, dest)
-      shutil.copystat(source, dest)   # Make sure last modification time is preserved
+      try:
+        shutil.copy(source, dest)
+      except Exception as e:
+        report.error("Can't copy [%s] -> [%s]: %s", source, dest, e)
+      try:
+        shutil.copystat(source, dest)   # Make sure last modification time is preserved
+      except Exception as e:
+        report.error("Can't copy stats [%s] -> [%s]: %s", source, dest, e)
   else:
     report.log("Will copy %s -> %s", source, dest)
   return report
@@ -450,23 +468,12 @@ class SublimeSection(Section):
     self.add_spec(name, _join(self.local_path, name), _short_path(_join(self.local_path, name)))
 
 
-class Sublime2Section(SublimeSection):
-  """ Sublime Text 2 settings """
-
-  def __init__(self):
-    super(Sublime2Section, self).__init__('2')
-    self.add_settings_folder('Installed Packages')
-    self.add_settings_folder('Packages')
-    self.add_settings_folder('Pristine Packages')
-
-
 class Sublime3Section(SublimeSection):
   """ Sublime Text 3 settings """
 
   def __init__(self):
     super(Sublime3Section, self).__init__('3')
-    self.add_settings_folder('Installed Packages')
-    self.add_settings_folder('Packages')
+    self.add_settings_folder('Packages/User')
 
 
 class RoamingRunner(object):
@@ -475,7 +482,6 @@ class RoamingRunner(object):
     self.sections = []
     self.sections.append(ShellSection())
     self.sections.append(GitSection())
-    self.sections.append(Sublime2Section())
     self.sections.append(Sublime3Section())
     self.sections.append(SshSection())
     self.sections.append(OSXSection())
