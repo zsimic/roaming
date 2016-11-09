@@ -26,7 +26,7 @@ else:
   HOME = os.environ.get('HOME')
 if not HOME:
   HOME = os.path.expanduser('~')
-ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.expanduser(__file__)))
+ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
 
 if PLATFORM_SYSTEM == P_CYGWIN:
   os.environ['CYGWIN'] = "winsymlinks:nativestrict"
@@ -385,17 +385,18 @@ class ShellSection(Section):
   def __init__(self):
     super(ShellSection, self).__init__('shell')
     self.platforms = [P_CYGWIN, P_LINUX, P_OSX]
-    self.add_simple_file_spec('zshrc', "zsh settings")
-    self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout")
-    self.add_simple_file_spec('bashrc', "bash session settings")
-    self.add_simple_file_spec('bash_profile', "bash login settings")
-    self.add_simple_file_spec('profile', "Shell login settings")
-    self.add_simple_file_spec('inputrc', "Readline library configuration")
-    self.add_simple_file_spec('vimrc', "VIm configuration")
-    self.add_simple_file_spec('tmux.conf', "tmux configuration")
-    self.add_simple_file_spec('screenrc', "screen configuration")
     self.add_simple_file_spec('ackrc', "ack configuration")
     self.add_simple_file_spec('agignore', "~/.agignore file")
+    self.add_simple_file_spec('bash_profile', "bash login settings")
+    self.add_simple_file_spec('bashrc', "bash session settings")
+    self.add_simple_file_spec('bin', "~/bin folder", local_path='~/bin')
+    self.add_simple_file_spec('inputrc', "Readline library configuration")
+    self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout")
+    self.add_simple_file_spec('profile', "Shell login settings")
+    self.add_simple_file_spec('screenrc', "screen configuration")
+    self.add_simple_file_spec('tmux.conf', "tmux configuration")
+    self.add_simple_file_spec('vimrc', "VIm configuration")
+    self.add_simple_file_spec('zshrc', "zsh settings")
 
 
 class GitSection(Section):
@@ -553,8 +554,10 @@ class RoamingRunner(object):
     else:
       s = self.settings_from_file(what)
     if s:
-      for a in s.active:
-        settings.add_active(a)
+      for name in s.active:
+        settings.add_active(name)
+      for name in s.exclude:
+        settings.add_exclude(name)
     else:
       _abort("Nothing corresponds to '%s' and no file '%s.cfg' found, typo?", what, what)
 
