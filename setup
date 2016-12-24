@@ -9,59 +9,22 @@ import platform
 import shutil
 import sys
 
-P_CYGWIN = 'cygwin'
+from windows import APPDATA, P_CYGWIN, P_WINDOWS
+
 P_LINUX = 'linux'
 P_OSX = 'darwin'
-P_WINDOWS = 'windows'
 
 PLATFORM_SYSTEM = platform.system().lower()
-APPDATA = os.environ.get('APPDATA')
 
 if PLATFORM_SYSTEM.lower().startswith('cygwin'):
   PLATFORM_SYSTEM = P_CYGWIN
 
-if PLATFORM_SYSTEM == P_WINDOWS:
-  HOME = APPDATA
-else:
-  HOME = os.environ.get('HOME')
+HOME = os.environ.get('HOME') or APPDATA
+
 if not HOME:
   HOME = os.path.expanduser('~')
+
 ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
-
-if PLATFORM_SYSTEM == P_CYGWIN:
-  os.environ['CYGWIN'] = "winsymlinks:nativestrict"
-
-elif PLATFORM_SYSTEM == P_WINDOWS:
-  # Add support for os.symlink and os.path.islink on Windows...
-
-  import ctypes
-  from ctypes import windll
-  __CSL = None
-  FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-  GetFileAttributes = windll.kernel32.GetFileAttributesW
-
-  def symlink(source, link_name):
-    global __CSL
-    if __CSL is None:
-      csl = ctypes.windll.kernel32.CreateSymbolicLinkW
-      csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
-      csl.restype = ctypes.c_ubyte
-      __CSL = csl
-    flags = 0
-    if source is not None and os.path.isdir(source):
-      flags = 1
-    if __CSL(link_name, source, flags) == 0:
-      raise ctypes.WinError()
-
-  def islink(path):
-    res = GetFileAttributes(path)
-    if res & FILE_ATTRIBUTE_REPARSE_POINT:
-      return True
-    else:
-      return False
-
-  os.symlink = symlink
-  os.path.islink = islink
 
 def _join(*components):
   """ Join path properly """
