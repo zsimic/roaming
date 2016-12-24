@@ -4,6 +4,7 @@
 Roam settings for ST2, ST3, shell settings etc.
 """
 
+import argparse
 import os
 import platform
 import shutil
@@ -17,32 +18,32 @@ P_OSX = 'darwin'
 PLATFORM_SYSTEM = platform.system().lower()
 
 if PLATFORM_SYSTEM.lower().startswith('cygwin'):
-  PLATFORM_SYSTEM = P_CYGWIN
+    PLATFORM_SYSTEM = P_CYGWIN
 
 HOME = os.environ.get('HOME') or APPDATA
 
 if not HOME:
-  HOME = os.path.expanduser('~')
+    sys.exit("Could not determine HOME folder, please check")
 
 ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
 
 def _join(*components):
-  """ Join path properly """
-  result = os.path.join(*components)
+    """ Join path properly """
+    result = os.path.join(*components)
 
-  if PLATFORM_SYSTEM == P_CYGWIN and result.startswith('/cygdrive'):
-    result = result.replace('/cygdrive/c', 'C:')
-    result = result.replace('/', '\\')
+    if PLATFORM_SYSTEM == P_CYGWIN and result.startswith('/cygdrive'):
+        result = result.replace('/cygdrive/c', 'C:')
+        result = result.replace('/', '\\')
 
-  return result
+    return result
 
 def _roaming_path(*components):
-  """ Path in roaming folder for 'components' (relative) """
-  return _join(ROAMING_ROOT, *components)
+    """ Path in roaming folder for 'components' (relative) """
+    return _join(ROAMING_ROOT, *components)
 
 def _short_path(path):
-  """ Shortened 'path' if possible (replace expanded HOME with ~) """
-  return path.replace(HOME, '~')
+    """ Shortened 'path' if possible (replace expanded HOME with ~) """
+    return path.replace(HOME, '~')
 
 def _get_description_from_file(fpath):
   """ Return comment found on first line in 'fpath', if available """
@@ -550,7 +551,7 @@ class RoamingRunner(object):
           self._add_to_settings(settings, line)
       return settings
     except Exception as e:
-      print "Can't read file %s: %s" % (fpath, e)
+      print("Can't read file %s: %s" % (fpath, e))
 
     return None
 
@@ -592,33 +593,22 @@ class Settings(object):
 def _abort(message, *args):
   if args:
     message = message % args
-  print message
-  print "See --help and/or --list for instructions"
+  print(message)
+  print("See --help and/or --list for instructions")
   sys.exit(1)
 
 def main():
 
   runner = RoamingRunner()
 
-  try:
-    import argparse
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
-    parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
-    parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
-    args = parser.parse_args()
-
-  except ImportError:
-    # Unfortunately, python 2.6 doesn't come with argparse
-    import optparse
-    parser = optparse.OptionParser()
-    parser.add_option('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
-    parser.add_option('-c', '--commit', action='store_true', help="Commit changes.")
-    (args, positionals) = parser.parse_args()
-    args.what = positionals
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
+  parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
+  parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
+  args = parser.parse_args()
 
   if args.list:
-    print runner.help()
+    print(runner.help())
     sys.exit(0)
 
   if args.what:
@@ -632,9 +622,9 @@ def main():
     settings = runner.settings_from_file('default')
 
   if not settings:
-    print "Specify which settings to roam (see --help)"
-    print "You can also create a 'default.cfg' file in the roaming folder (%s)" % ROAMING_ROOT
-    print "See 'bash.cfg' for an example of how to write a 'default.cfg' file"
+    print("Specify which settings to roam (see --help)")
+    print("You can also create a 'default.cfg' file in the roaming folder (%s)" % ROAMING_ROOT)
+    print("See 'bash.cfg' for an example of how to write a 'default.cfg' file")
     sys.exit(1)
 
   report = runner.setup(settings, args.commit)
@@ -642,13 +632,13 @@ def main():
   if not report.messages:
     _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
 
-  print report
+  print(report)
 
   if not args.commit and report.logs and not report.errors:
-    print "Use -c to effectively perform these changes"
+    print("Use -c to effectively perform these changes")
 
   elif not report.logs and not report.errors:
-    print "All good"
+    print("All good")
 
 if __name__ == "__main__":
   if not HOME:
