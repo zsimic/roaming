@@ -5,8 +5,9 @@ git
 misc
 oh-my-zsh
 osx
+pycharm
 shell
 ssh
-ST2
 ST3
-themes
+
+*.pyc
