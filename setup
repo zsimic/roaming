@@ -10,18 +10,20 @@ import platform
 import shutil
 import sys
 
-from windows import APPDATA, P_CYGWIN, P_WINDOWS
-
 P_LINUX = 'linux'
 P_OSX = 'darwin'
+P_CYGWIN = 'cygwin'
+P_WINDOWS = 'windows'
 
 PLATFORM_SYSTEM = platform.system().lower()
-
-if PLATFORM_SYSTEM.lower().startswith('cygwin'):
+if PLATFORM_SYSTEM.startswith('cygwin'):
     PLATFORM_SYSTEM = P_CYGWIN
+    os.environ['CYGWIN'] = "winsymlinks:nativestrict"
 
-HOME = os.environ.get('HOME') or APPDATA
+if PLATFORM_SYSTEM in (P_WINDOWS, P_CYGWIN) and sys.version_info < (3, 0):
+    sys.exit("Python 3.0+ required on Windows (for proper symlink support)")
 
+HOME = os.environ.get('HOME') or os.environ.get('APPDATA')
 if not HOME:
     sys.exit("Could not determine HOME folder, please check")
 
@@ -107,7 +109,7 @@ def _symlink(report, local, roaming, commit):
             os.symlink(roaming, local)
 
         except Exception as e:
-            report.error("Can't symlink [%s] -> [%s]: %s", local, roaming, e)
+            report.error("Can't symlink %s -> %s: %s", local, roaming, e)
 
     else:
         report.log("Will create symlink %s -> %s", local, roaming)
@@ -442,7 +444,7 @@ class SublimeSection(Section):
         elif PLATFORM_SYSTEM == P_OSX:
             self.local_path = _join(HOME, 'Library', 'Application Support', self.long_name)
         elif PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
-            self.local_path = "%s\\%s" % (APPDATA, self.long_name)
+            self.local_path = os.path.join(HOME, self.long_name)
         super(SublimeSection, self).__init__(self.short_name)
 
     def setup(self, settings, commit):
@@ -472,7 +474,7 @@ class Sublime3Section(SublimeSection):
 
     def __init__(self):
         super(Sublime3Section, self).__init__('3')
-        self.add_settings_folder('Packages/User')
+        self.add_settings_folder(os.path.join('Packages', 'User'))
 
 
 class RoamingRunner(object):
