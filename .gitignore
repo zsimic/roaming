@@ -3,11 +3,11 @@
 default.cfg
 git
 misc
-oh-my-zsh
 osx
 pycharm
 shell
 ssh
-ST3
+st3
+tools
 
 *.pyc
