@@ -46,6 +46,11 @@ def _roaming_path(*components):
     return _join(ROAMING_ROOT, *components)
 
 
+def relative_path(path):
+    """ Relative to home folder """
+    return os.path.relpath(path, HOME)
+
+
 def _short_path(path):
     """ Shortened 'path' if possible (replace expanded HOME with ~) """
     return path.replace(HOME, '~')
@@ -77,7 +82,7 @@ def _delete(report, path, commit):
         return report
 
     if commit:
-        report.log("Deleting %s", path)
+        report.log("Deleting %s", relative_path(path))
         if os.path.isfile(path) or os.path.islink(path):
             os.unlink(path)
 
@@ -89,7 +94,7 @@ def _delete(report, path, commit):
                 report.error("Can't delete [%s]: %s", path, e)
 
     else:
-        report.log("Will delete %s", path)
+        report.log("Will delete %s", relative_path(path))
 
     return report
 
@@ -103,16 +108,16 @@ def _symlink(report, local, roaming, commit):
         return report.error("%s does not exist", roaming)
 
     if commit:
-        report.log("Creating symlink %s -> %s", local, roaming)
+        report.log("Creating symlink %s -> %s", local, relative_path(roaming))
 
         try:
-            os.symlink(roaming, local)
+            os.symlink(relative_path(roaming), local)
 
         except Exception as e:
-            report.error("Can't symlink %s -> %s: %s", local, roaming, e)
+            report.error("Can't symlink %s -> %s: %s", local, relative_path(roaming), e)
 
     else:
-        report.log("Will create symlink %s -> %s", local, roaming)
+        report.log("Will create symlink %s -> %s", local, relative_path(roaming))
 
     return report
 
@@ -126,7 +131,7 @@ def _copy(report, source, dest, commit):
         return report.error("%s does not exist", source)
 
     if commit:
-        report.log("Copying %s -> %s", source, dest)
+        report.log("Copying %s -> %s", source, relative_path(dest))
         parent = os.path.dirname(dest)
 
         if not os.path.isdir(parent):
@@ -134,7 +139,7 @@ def _copy(report, source, dest, commit):
                 os.makedirs(parent)
 
             except Exception as e:
-                report.error("Can't create [%s]: %s", path, e)
+                report.error("Can't create [%s]: %s", parent, e)
 
         if os.path.isdir(source):
             try:
@@ -156,7 +161,7 @@ def _copy(report, source, dest, commit):
                 report.error("Can't copy stats [%s] -> [%s]: %s", source, dest, e)
 
     else:
-        report.log("Will copy %s -> %s", source, dest)
+        report.log("Will copy %s -> %s", source, relative_path(dest))
 
     return report
 
@@ -253,7 +258,7 @@ class Spec(object):
                 needs_copy = True
                 _delete(report, self.local_path, commit)
             elif os.path.islink(os.path.dirname(self.local_path)):
-                # Sprecial case with previous symlinking of KeyBindings by this very script...
+                # Special case with previous symlinking of KeyBindings by this very script...
                 # This script used to symlink ~/Library/KeyBindings -> roaming (instead of ~/Library/KeyBindings/DefaultKeyBinding.dict)
                 needs_copy = True
                 _delete(report, os.path.dirname(self.local_path), commit)
@@ -266,7 +271,7 @@ class Spec(object):
             if os.path.exists(self.local_path):
                 time_diff = os.path.getmtime(self.roaming_path) - os.path.getmtime(self.local_path)
                 if abs(time_diff) < 5:
-                    report.info("OK %s <-> %s", self.roaming_path, self.local_path)
+                    report.info("OK %s <-> %s", relative_path(self.roaming_path), self.local_path)
                 elif time_diff > 0:
                     # Roaming copy is younger
                     _copy(report, self.roaming_path, self.local_path, commit)
@@ -279,9 +284,9 @@ class Spec(object):
             return report
 
         if os.path.islink(self.local_path):
-            if os.path.realpath(self.local_path) == self.roaming_path or PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
-                # FIXME: Need a good implementation for os.path.realpath on Windows
-                return report.info("OK %s -> %s", self.local_path, self.roaming_path)
+            if os.readlink(self.local_path) == relative_path(self.roaming_path) or PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
+                # FIXME: Need a good implementation for os.readlink on Windows
+                return report.info("OK %s -> %s", self.local_path, relative_path(self.roaming_path))
         if not os.path.exists(self.roaming_path):
             # Initialize self.roaming_path from self.local_path
             _copy(report, self.local_path, self.roaming_path, commit)
@@ -647,6 +652,10 @@ def main():
     if args.list:
         print(runner.help())
         sys.exit(0)
+
+    if not ROAMING_ROOT.startswith(HOME):
+        print("Roaming root '%s' does not reside under HOME '%s" % (ROAMING_ROOT, HOME))
+        sys.exit(1)
 
     if args.what:
         settings = Settings('command line')
