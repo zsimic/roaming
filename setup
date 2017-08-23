@@ -237,6 +237,13 @@ class Spec(object):
             return '%s <-> %s' % (source, dest)
         return '%s -> %s' % (source, dest)
 
+    def is_match(self, name):
+        if not name:
+            return False
+        if name[0] == '~':
+            return os.path.expanduser(name) == self.local_path
+        return name.lower() == self.name.lower()
+
     def setup(self, commit):
         """
           Link 'self.local_path' to roaming correspondent,
@@ -314,17 +321,17 @@ class Section(object):
     def __repr__(self):
         return '%s [%s] %s specs' % (self.folder, ' '.join(self.platforms), len(self.specs))
 
-    def has_roamable(self, name):
+    def get_roamable(self, name):
         """
           @param str name: Name of roamable
-          @return bool: Do we have a roamable with 'name'?
+          @return: Corresponding section or spec?
         """
         if self.folder.lower() == name.lower():
-            return True
+            return self
         for spec in self.specs:
-            if name.lower() == spec.name.lower():
-                return True
-        return False
+            if spec.is_match(name):
+                return spec
+        return None
 
     def add_spec(self, name, local_path, doc=None, copy_only=False):
         """
@@ -484,6 +491,7 @@ class ST3Section(Section):
 class RoamingRunner(object):
     def __init__(self):
         self.sections = []
+        self.adhoc_section = None
         self.sections.append(ShellSection())
         self.sections.append(ToolsSection())
         self.sections.append(GitSection())
@@ -533,14 +541,28 @@ class RoamingRunner(object):
         res += self.available_bundles()
         return res
 
-    def has_roamable(self, name):
+    def get_roamable(self, name):
         """
           @param str name: Name of roamable
-          @return bool: Do we have a roamable with 'name'?
+          @return: Corresponding section or spec?
         """
         for section in self.sections:
-            if section.has_roamable(name):
-                return True
+            roamable = section.get_roamable(name)
+            if roamable:
+                return roamable
+        return None
+
+    def _add_adhoc(self, path):
+        if not self.adhoc_section:
+            self.adhoc_section = Section()
+            self.adhoc_section.folder = 'adhoc'
+            self.sections.append(self.adhoc_section)
+        if not self.get_roamable(path):
+            full_path = os.path.expanduser(path)
+            short_name = path[2:]
+            if short_name.startswith('.'):
+                short_name = short_name[1:]
+            self.adhoc_section.add_simple_file_spec(short_name, path, full_path)
 
     def _add_to_settings(self, settings, what):
         """
@@ -550,8 +572,11 @@ class RoamingRunner(object):
         if what.startswith('-'):
             settings.add_exclude(what[1:])
             return
-        if self.has_roamable(what):
-            settings.add_active(what)
+        if what.startswith('~/'):
+            self._add_adhoc(what)
+        roamable = self.get_roamable(what)
+        if roamable:
+            settings.add_active(roamable)
             return
         if what == 'all':
             s = self.all_settings()
@@ -623,6 +648,10 @@ class Settings(object):
         if isinstance(name, list):
             for s in name:
                 self.add_active(s)
+        elif isinstance(name, Spec):
+            self.add_active(name.name)
+        elif isinstance(name, Section):
+            self.add_active(name.folder)
         else:
             self.active.append(name.lower())
 

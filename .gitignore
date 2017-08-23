@@ -1,6 +1,12 @@
 .DS_Store
-.idea
+.idea/
+*.py[cod]
+
+# Don't check-in default.cfg
 default.cfg
+
+# Roaming subfolders
+adhoc
 git
 misc
 osx
@@ -9,5 +15,3 @@ shell
 ssh
 st3
 tools
-
-*.pyc
