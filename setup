@@ -82,7 +82,7 @@ def _delete(report, path, commit):
         return report
 
     if commit:
-        report.log("Deleting %s", relative_path(path, HOME))
+        report.log("Deleting %s", path)
         if os.path.isfile(path) or os.path.islink(path):
             os.unlink(path)
 
@@ -94,7 +94,7 @@ def _delete(report, path, commit):
                 report.error("Can't delete [%s]: %s", path, e)
 
     else:
-        report.log("Will delete %s", relative_path(path, HOME))
+        report.log("Will delete %s", path)
 
     return report
 
@@ -132,7 +132,7 @@ def _copy(report, source, dest, commit):
         return report.error("%s does not exist", source)
 
     if commit:
-        report.log("Copying %s -> %s", source, relative_path(dest, HOME))
+        report.log("Copying %s -> %s", source, dest)
         parent = os.path.dirname(dest)
 
         if not os.path.isdir(parent):
@@ -162,7 +162,7 @@ def _copy(report, source, dest, commit):
                 report.error("Can't copy stats [%s] -> [%s]: %s", source, dest, e)
 
     else:
-        report.log("Will copy %s -> %s", source, relative_path(dest, HOME))
+        report.log("Will copy %s -> %s", source, dest)
 
     return report
 
