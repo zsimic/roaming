@@ -224,6 +224,9 @@ def main():
         for path in SYNCED_FOLDERS:
             sync_folder(path)
 
+    except KeyboardInterrupt:
+        LOG.info("Aborted")
+
     except Exception as e:
         LOG.exception("Crashed: %s", e)
 
