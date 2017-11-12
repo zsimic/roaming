@@ -1,5 +1,5 @@
 """
-Setup a '{local}/roaming' folder to be synced hourly with '{mounted}/roaming'
+Setup a '{local}/roaming' folder to be synced with '{mounted}/roaming'
 (regular folder, no space in folder name)
 
 Useful to work around the annoyance of the new Google Drive File Stream thing
@@ -151,7 +151,7 @@ def sync_folder(path):
         LOG.warning("Check line %s", line)
 
     if overview:
-        LOG.info("%s modifications for %s in %.3f seconds:\n%s\n", len(overview) - 1, path, time.time() - started, '\n'.join(overview))
+        LOG.info("%s modifications for '%s' in %.3f seconds:\n%s\n", len(overview) - 1, path, time.time() - started, '\n'.join(overview))
 
 
 def main():
@@ -204,7 +204,7 @@ def main():
         #            +------------- min (0 - 59)
 
         if cron_line not in output:
-            LOG.info("Installing hourly cron job: %s" % cron_line)
+            LOG.info("Installing cron job: %s" % cron_line)
             temp_file = '/tmp/%s.cron' % SCRIPT_NAME
             with open(temp_file, 'w') as fh:
                 for line in output.split('\n'):
