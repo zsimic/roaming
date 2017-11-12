@@ -196,11 +196,11 @@ def main():
         cron_path = os.path.join(GDRIVE, 'roaming', SCRIPT_BASENAME)
         require_file(cron_path)
         exitocde, output, error = run_command(CRONTAB, '-l', passthrough=False, fatal=False)
-        cron_line = '0 * * * *  %s %s --cron' % (python_interpreter, quoted(cron_path))
-        #            | | | | +----- day of week (0 - 6) (Sunday=0)
-        #            | | | +------- month (1 - 12)
-        #            | | +--------- day of month (1 - 31)
-        #            | +----------- hour (0 - 23)
+        cron_line = '*/10 * * * *  %s %s --cron' % (python_interpreter, quoted(cron_path))
+        #            |    | | | +----- day of week (0 - 6) (Sunday=0)
+        #            |    | | +------- month (1 - 12)
+        #            |    | +--------- day of month (1 - 31)
+        #            |    +----------- hour (0 - 23)
         #            +------------- min (0 - 59)
 
         if cron_line not in output:
