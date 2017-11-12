@@ -3,6 +3,7 @@ Setup a '{local}/roaming' folder to be synced with '{mounted}/roaming'
 (regular folder, no space in folder name)
 
 Useful to work around the annoyance of the new Google Drive File Stream thing
+Script won't be needed once google gets their act together and can sync a given folder
 
 Run this once per machine to get initial {local} folder and crontab setup:
     {python} {script}
