@@ -56,7 +56,7 @@ def require_file(path):
 
 
 def ultra_short_path(path):
-    return path.replace(GDRIVE, '~/gd').replace(GDRIVE_VOLUME, '/VGD')
+    return os.path.dirname(path).replace(GDRIVE, '~/gd').replace(GDRIVE_VOLUME, '/VGD')
 
 
 def quoted(text):
@@ -151,7 +151,7 @@ def sync_folder(path):
         LOG.warning("Check line %s", line)
 
     if overview:
-        LOG.info("%s modifications in %.3f seconds:\n%s\n", len(overview) - 1, time.time() - started, '\n'.join(overview))
+        LOG.info("%s modifications for %s in %.3f seconds:\n%s\n", len(overview) - 1, path, time.time() - started, '\n'.join(overview))
 
 
 def main():
