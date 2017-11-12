@@ -5,6 +5,9 @@ Setup a '{local}/roaming' folder to be synced with '{mounted}/roaming'
 Useful to work around the annoyance of the new Google Drive File Stream thing
 Script won't be needed once google gets their act together and can sync a given folder
 
+You'll need to install unison (https://github.com/bcpierce00/unison):
+brew install unison (or equivalent)
+
 Run this once per machine to get initial {local} folder and crontab setup:
     {python} {script}
 """
