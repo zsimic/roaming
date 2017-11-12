@@ -25,7 +25,6 @@ GDRIVE = os.path.expanduser('~/gdrive')
 GDRIVE_VOLUME = '/Volumes/GoogleDrive/My Drive'
 SCRIPT_BASENAME = os.path.basename(__file__)
 SCRIPT_NAME = SCRIPT_BASENAME.replace('.py', '')
-PYTHON = os.path.basename(sys.executable).partition('.')[0]         # This script can be ran with python 2 or 3
 
 UNISON = '/usr/local/bin/unison'
 CRONTAB = '/usr/bin/crontab'
@@ -158,8 +157,12 @@ def sync_folder(path):
 
 def main():
     script_path = os.path.join(GDRIVE_VOLUME, 'roaming', SCRIPT_BASENAME)
-    doc = __doc__.format(python=PYTHON, local=quoted(GDRIVE), script=quoted(script_path), mounted=GDRIVE_VOLUME)
-    parser = argparse.ArgumentParser(description=doc, formatter_class=argparse.RawTextHelpFormatter)
+
+    # This script can be ran with python 2 or 3
+    python_interpreter = os.environ.get('_', sys.executable)
+
+    description = __doc__.format(python=python_interpreter, local=quoted(GDRIVE), script=quoted(script_path), mounted=GDRIVE_VOLUME)
+    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--debug', action='store_true', help="Show debug info.")
     parser.add_argument('--cron', action='store_true', help="Called from cron (don't log to stdout/stderr).")
 
@@ -194,7 +197,7 @@ def main():
         cron_path = os.path.join(GDRIVE, 'roaming', SCRIPT_BASENAME)
         require_file(cron_path)
         exitocde, output, error = run_command(CRONTAB, '-l', passthrough=False, fatal=False)
-        cron_line = '0 * * * *  %s %s --cron' % (PYTHON, quoted(cron_path))
+        cron_line = '0 * * * *  %s %s --cron' % (python_interpreter, quoted(cron_path))
         #            | | | | +----- day of week (0 - 6) (Sunday=0)
         #            | | | +------- month (1 - 12)
         #            | | +--------- day of month (1 - 31)
@@ -202,7 +205,7 @@ def main():
         #            +------------- min (0 - 59)
 
         if cron_line not in output:
-            LOG.info("Installing crontab")
+            LOG.info("Installing hourly cron job: %s" % cron_line)
             temp_file = '/tmp/%s.cron' % SCRIPT_NAME
             with open(temp_file, 'w') as fh:
                 for line in output.split('\n'):
