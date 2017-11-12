@@ -84,10 +84,9 @@ def run_command(*args, **kwargs):
     if error:
         LOG.debug("stderr from %s:\n%s", program_name, error.strip())
 
-    if p.returncode:
+    if fatal and p.returncode:
         LOG.error("%s exited with code %s", program_name, p.returncode)
-        if fatal:
-            sys.exit(p.returncode)
+        sys.exit(p.returncode)
 
     if not fatal:
         return p.returncode, output, error
