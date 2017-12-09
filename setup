@@ -413,7 +413,7 @@ class ToolsSection(Section):
         self.add_simple_file_spec('ackrc', "ack configuration")
         self.add_simple_file_spec('agignore', "~/.agignore file")
         self.add_simple_file_spec('editorconfig', "See http://editorconfig.org/")
-        self.add_simple_file_spec('vimrc', "VIm configuration")
+        self.add_simple_file_spec('vimrc', "vim configuration")
 
 
 class GitSection(Section):
@@ -423,8 +423,7 @@ class GitSection(Section):
         super(GitSection, self).__init__()
         self.platforms = [P_CYGWIN, P_LINUX, P_OSX]
         self.add_simple_file_spec('gitconfig', "~/.gitconfig file")
-        self.add_simple_file_spec('gitignore_global',
-                                  "~/.gitignore_global file (if you like to have a global git ignore)")
+        self.add_simple_file_spec('gitignore_global', "~/.gitignore_global file (if you like to have a global git ignore)")
 
 
 class SshSection(Section):

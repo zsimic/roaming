@@ -1,9 +1,8 @@
 """
-Setup a '{local}/roaming' folder to be synced with '{mounted}/roaming'
-(regular folder, no space in folder name)
+Sync '{local}' folder with '{mounted}'
 
 Useful to work around the annoyance of the new Google Drive File Stream thing
-Script won't be needed once google gets their act together and can sync a given folder
+Script won't be needed once google gets their act together and can sync a given folder under '~'
 
 You'll need to install unison (https://github.com/bcpierce00/unison):
 brew install unison (or equivalent)
@@ -25,15 +24,15 @@ import time
 
 LOG = logging.getLogger(__name__)
 
-GDRIVE = os.path.expanduser('~/gdrive')
-GDRIVE_VOLUME = '/Volumes/GoogleDrive/My Drive'
+LOCAL_TARGET = os.path.expanduser('~/gdrive')
+MOUNTED_TARGET = '/Volumes/GoogleDrive/My Drive/gdrive'
+LTP = os.path.dirname(LOCAL_TARGET)
+MTP = os.path.dirname(MOUNTED_TARGET)
 SCRIPT_BASENAME = os.path.basename(__file__)
 SCRIPT_NAME = SCRIPT_BASENAME.replace('.py', '')
 
 UNISON = '/usr/local/bin/unison'
 CRONTAB = '/usr/bin/crontab'
-
-SYNCED_FOLDERS = 'roaming'.split()
 
 UNISON_IGNORE_OUTPUT = tuple("Contacting Looking Reconciling Propagating UNISON [END] Saving".split())
 REGEX_UPDATE = re.compile(r'\[BGN\] (Updating file|Copying) (.+) from (/.+) to (/.+)')
@@ -60,7 +59,7 @@ def require_file(path):
 
 
 def ultra_short_path(path):
-    return os.path.dirname(path).replace(GDRIVE, '~/gd').replace(GDRIVE_VOLUME, '/VGD')
+    return os.path.dirname(path).replace(LTP, '~').replace(MTP, '/M')
 
 
 def quoted(text):
@@ -98,32 +97,27 @@ def run_command(*args, **kwargs):
     return output, error
 
 
-def sync_folder(path):
+def perform_sync():
     started = time.time()
-    source = os.path.join(GDRIVE_VOLUME, path)
-    target = os.path.join(GDRIVE, path)
-
-    require_folder(source)
-
-    if not os.path.isdir(target):
-        LOG.info("Copying %s -> %s" % (source, target))
-        shutil.copytree(source, target, symlinks=True)
-
-    require_folder(target)
+    require_folder(MOUNTED_TARGET)
+    if not os.path.isdir(LOCAL_TARGET):
+        LOG.info("Copying %s -> %s" % (MOUNTED_TARGET, LOCAL_TARGET))
+        shutil.copytree(MOUNTED_TARGET, LOCAL_TARGET, symlinks=True)
+    require_folder(LOCAL_TARGET)
 
     cmd = [
         UNISON,
-        '-batch=true',          # batch mode: ask no questions at all
-        '-links=False',         # allow the synchronization of symbolic links
-        '-rsrc=False',          # synchronize resource forks
-        '-perms=0',             # part of the permissions which is synchronized
-        '-dontchmod=true',      # never use the chmod system call
-        '-log=false',           # don't log to file
-        '-times=true',          # synchronize modification times
-        '-dumbtty=true',        # do not change terminal settings in text UI
-        '-prefer=%s' % target,  # choose this replica's version for conflicting changes
-        source,
-        target,
+        '-batch=true',                  # batch mode: ask no questions at all
+        '-links=False',                 # allow the synchronization of symbolic links
+        '-rsrc=False',                  # synchronize resource forks
+        '-perms=0',                     # part of the permissions which is synchronized
+        '-dontchmod=true',              # never use the chmod system call
+        '-log=false',                   # don't log to file
+        '-times=true',                  # synchronize modification times
+        '-dumbtty=true',                # do not change terminal settings in text UI
+        '-prefer=%s' % LOCAL_TARGET,    # choose this replica's version for conflicting changes
+        MOUNTED_TARGET,
+        LOCAL_TARGET,
     ]
 
     output, error = run_command(*cmd, passthrough=False, fatal=True)
@@ -155,16 +149,16 @@ def sync_folder(path):
         LOG.warning("Check line %s", line)
 
     if overview:
-        LOG.info("%s modifications for '%s' in %.3f seconds:\n%s\n", len(overview) - 1, path, time.time() - started, '\n'.join(overview))
+        LOG.info("%s modifications in %.3f seconds:\n%s\n", len(overview) - 1, time.time() - started, '\n'.join(overview))
 
 
 def main():
-    script_path = os.path.join(GDRIVE_VOLUME, 'roaming', SCRIPT_BASENAME)
+    script_path = os.path.join(MOUNTED_TARGET, 'roaming', SCRIPT_BASENAME)
 
     # This script can be ran with python 2 or 3
     python_interpreter = os.environ.get('_', sys.executable)
 
-    description = __doc__.format(python=python_interpreter, local=quoted(GDRIVE), script=quoted(script_path), mounted=GDRIVE_VOLUME)
+    description = __doc__.format(python=python_interpreter, local=quoted(LOCAL_TARGET), script=quoted(script_path), mounted=MOUNTED_TARGET)
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--debug', action='store_true', help="Show debug info.")
     parser.add_argument('--cron', action='store_true', help="Called from cron (don't log to stdout/stderr).")
@@ -189,17 +183,16 @@ def main():
     logging.root.setLevel(level)
 
     try:
-        require_folder(GDRIVE_VOLUME)
+        require_folder(MOUNTED_TARGET)
         require_file(UNISON)
         require_file(CRONTAB)
 
-        if not os.path.isdir(GDRIVE):
-            LOG.info("Creating folder %s" % GDRIVE)
-            os.mkdir(GDRIVE)
+        if not os.path.isdir(LOCAL_TARGET):
+            LOG.info("Creating folder %s" % LOCAL_TARGET)
+            os.mkdir(LOCAL_TARGET)
 
-        cron_path = os.path.join(GDRIVE, 'roaming', SCRIPT_BASENAME)
-        require_file(cron_path)
-        exitocde, output, error = run_command(CRONTAB, '-l', passthrough=False, fatal=False)
+        cron_path = os.path.join(LOCAL_TARGET, 'roaming', SCRIPT_BASENAME)
+        exitcode, output, error = run_command(CRONTAB, '-l', passthrough=False, fatal=False)
         cron_line = '*/10 * * * *  %s %s --cron' % (python_interpreter, quoted(cron_path))
         #            |    | | | +----- day of week (0 - 6) (Sunday=0)
         #            |    | | +------- month (1 - 12)
@@ -222,10 +215,9 @@ def main():
 
             os.unlink(temp_file)
 
-        require_folder(GDRIVE)
-
-        for path in SYNCED_FOLDERS:
-            sync_folder(path)
+        require_folder(LOCAL_TARGET)
+        perform_sync()
+        require_file(cron_path)
 
     except KeyboardInterrupt:
         LOG.info("Aborted")
