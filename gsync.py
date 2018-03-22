@@ -34,7 +34,7 @@ SCRIPT_NAME = SCRIPT_BASENAME.replace('.py', '')
 UNISON = '/usr/local/bin/unison'
 CRONTAB = '/usr/bin/crontab'
 
-UNISON_IGNORE_OUTPUT = tuple("Contacting Looking Reconciling Propagating UNISON [END] Saving".split())
+UNISON_IGNORE_OUTPUT = tuple("Contacting Looking Reconciling Propagating UNISON [END] Saving Unison Nothing".split())
 REGEX_UPDATE = re.compile(r'\[BGN\] (Updating file|Copying) (.+) from (/.+) to (/.+)')
 REGEX_DELETE = re.compile(r'\[BGN\] Deleting (.+) from (/.+)')
 SHORT_ACTION_NAME = {
@@ -121,7 +121,7 @@ def perform_sync():
     ]
 
     output, error = run_command(*cmd, passthrough=False, fatal=True)
-    if "Nothing to do: replicas have not changed" in error:
+    if "Nothing to do" in error:
         return
 
     overview = []
@@ -150,6 +150,12 @@ def perform_sync():
 
     if overview:
         LOG.info("%s modifications in %.3f seconds:\n%s\n", len(overview) - 1, time.time() - started, '\n'.join(overview))
+        bin_folder = os.path.expanduser('~/bin')
+        if os.path.isdir(bin_folder):
+            for name in os.listdir(bin_folder):
+                full_path = os.path.join(bin_folder, name)
+                if os.path.isfile(full_path):
+                    run_command('/bin/chmod', 'a+x', full_path)
 
 
 def main():
