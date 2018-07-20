@@ -107,7 +107,13 @@ def _symlink(report, local, roaming, commit):
     if not os.path.exists(roaming) and commit:
         return report.error("%s does not exist", roaming)
 
-    target = relative_path(roaming, local)
+    # Use relative path if roaming forlder is under ~
+    if ROAMING_ROOT.startswith(HOME):
+        target = relative_path(roaming, local)
+
+    else:
+        target = roaming
+
     if commit:
         report.log("Creating symlink %s -> %s", local, target)
 
@@ -375,7 +381,7 @@ class Section(object):
             if platform_supported:
                 rep.add(spec.setup(commit))
         if match_count and not platform_supported:
-            return rep.info("Skipped on this platform, only available on %s", ' '.join(self.platforms))
+            return rep.info("Skipped on this platform (%s), only available on %s", PLATFORM_SYSTEM, ' '.join(self.platforms))
         return rep
 
     def help(self, platform):
@@ -684,8 +690,8 @@ def main():
         sys.exit(0)
 
     if not ROAMING_ROOT.startswith(HOME):
-        print("Roaming root '%s' does not reside under HOME '%s" % (ROAMING_ROOT, HOME))
-        sys.exit(1)
+        print("Roaming root '%s' does not reside under HOME '%s'" % (ROAMING_ROOT, HOME))
+        # sys.exit(1)
 
     if args.what:
         settings = Settings('command line')
