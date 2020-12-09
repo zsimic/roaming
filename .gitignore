@@ -1,17 +1,25 @@
-.DS_Store
+.\#*
+*~
+\#*#
+.*cache
+.DS_Store*
 .idea/
+.vscode/
 *.py[cod]
+*humbs.db*
+Icon?
 
 # Don't check-in default.cfg
 default.cfg
 
 # Roaming subfolders
+_*
 adhoc
 git
-misc
-osx
-pycharm
+linux
+macos
 shell
 ssh
 st3
 tools
+windows
