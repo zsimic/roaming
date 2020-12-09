@@ -108,7 +108,7 @@ def _symlink(report, local, roaming, commit):
     if not os.path.exists(roaming) and commit:
         return report.error("%s does not exist", roaming)
 
-    # Use relative path if roaming forlder is under ~
+    # Use relative path if roaming folder is under ~
     if ROAMING_ROOT.startswith(HOME):
         target = relative_path(roaming, local)
 
@@ -333,9 +333,6 @@ class Section(object):
     """ Roaming section """
 
     def __init__(self):
-        """
-          @param str folder: Sub folder to use for this section in ROAMING_ROOT
-        """
         self.platforms = [P_CYGWIN, P_LINUX, P_MACOS, P_WINDOWS]                    # Supported platforms
         self.folder = self.__class__.__name__.lower().replace('section', '')        # Folder name holding the roamed settings
         self.specs = []                                                             # Specifications to roam for this section
@@ -620,7 +617,7 @@ class RoamingRunner(object):
                 "Please rename your ./osx folder to ./macos",
                 "Don't forget to adapt corresponding apps if you used that folder for other things too (like Alfred or iTerm2).",
                 "",
-                "Sorry for the invonvenience, but it's probably best to adapt to the new name properly...",
+                "Sorry for the inconvenience, but it's probably best to adapt to the new name properly...",
             ]
             _abort("\n********************************\n\n%s\n\n********************************\n" % "\n".join(msg))
 
@@ -768,6 +765,7 @@ def main():
         settings = Settings('command line')
         for what in args.what:
             runner._add_to_settings(settings, what)
+
         if not settings.active:
             _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
 
