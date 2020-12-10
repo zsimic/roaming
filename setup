@@ -30,6 +30,13 @@ if not HOME:
 ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
 
 
+def _expanded_path(path):
+    if path and path.startswith("~"):
+        path = os.path.join(HOME, path[2:])
+
+    return path
+
+
 def _join(*components):
     """ Join path properly """
     result = os.path.join(*components)
@@ -180,8 +187,9 @@ class Report(object):
     def __init__(self, title=""):
         self.title = title
         self.messages = []
-        self.logs = 0
         self.errors = 0
+        self.infos = 0
+        self.logs = 0
 
     def _log(self, msg, *args):
         if args:
@@ -193,21 +201,23 @@ class Report(object):
         self.messages.append(_short_path(msg))
         return self
 
+    def error(self, msg, *args):
+        self.errors += 1
+        return self._log(msg, *args)
+
     def info(self, msg, *args):
+        self.infos += 1
         return self._log(msg, *args)
 
     def log(self, msg, *args):
         self.logs += 1
         return self._log(msg, *args)
 
-    def error(self, msg, *args):
-        self.errors += 1
-        return self._log(msg, *args)
-
     def add(self, other):
         assert other
-        self.logs += other.logs
         self.errors += other.errors
+        self.infos += other.infos
+        self.logs += other.logs
         for m in other.messages:
             self.messages.append(m)
 
@@ -230,8 +240,8 @@ class Spec(object):
         """
         self.section = section
         self.name = name
-        self.local_path = os.path.expanduser(local_path)
-        self.roaming_path = _roaming_path(self.section.folder, self.name)
+        self.local_path = _expanded_path(local_path)
+        self.roaming_path = section.computed_roaming_path(self)
         self.doc = doc or ""
         if copy_only:
             self.doc = "[Copy] %s" % self.doc
@@ -245,7 +255,7 @@ class Spec(object):
 
     def __repr__(self):
         source = _short_path(self.local_path)
-        dest = _short_path(_roaming_path(self.section.folder, self.name))
+        dest = _short_path(self.roaming_path)
         if self.copy_only:
             return "%s <-> %s" % (source, dest)
 
@@ -256,7 +266,7 @@ class Spec(object):
             return False
 
         if name[0] == "~":
-            return os.path.expanduser(name) == self.local_path
+            return _expanded_path(name) == self.local_path
 
         return name.lower() == self.name.lower()
 
@@ -268,7 +278,7 @@ class Spec(object):
         @param bool commit: Commit changes when true
         @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
-        report = Report(self.section.folder)
+        report = Report(self.section.name)
         if self.copy_only:
             report.title += "+"
             needs_copy = True
@@ -331,6 +341,12 @@ class Spec(object):
             if r.errors:
                 return r
 
+        if not os.path.exists(self.local_path):
+            if self.optional:
+                return report
+
+            return report.error("%s does not exist", self.local_path)
+
         _delete(report, self.local_path, commit)
         _symlink(report, self.local_path, self.roaming_path, commit)
         return report
@@ -343,15 +359,26 @@ class Section(object):
     """ Roaming section """
 
     def __init__(self):
-        self.platforms = [P_CYGWIN, P_LINUX, P_MACOS, P_WINDOWS]  # Supported platforms
-        self.folder = self.__class__.__name__.lower().replace("section", "")  # Folder name holding the roamed settings
-        self.specs = []  # Specifications to roam for this section
+        self.platforms = [P_CYGWIN, P_LINUX, P_MACOS, P_WINDOWS]
+        self.name = self.__class__.__name__.lower().replace("section", "")
+        self.folder = self.name
+        self.specs = []  # type: list[Spec]
 
     def __repr__(self):
-        return "%s [%s] %s specs" % (self.folder, " ".join(self.platforms), len(self.specs))
+        return "%s [%s] %s specs" % (self.name, " ".join(self.platforms), len(self.specs))
+
+    def computed_roaming_path(self, spec):
+        """
+        Args:
+            spec (Spec): Associated spec
+
+        Returns:
+            (str): Roaming path
+        """
+        return _roaming_path(self.folder, spec.name)
 
     def is_match(self, name):
-        return self.folder.lower() == name.lower()
+        return self.name == name.lower()
 
     def get_roamable(self, name):
         """
@@ -387,9 +414,8 @@ class Section(object):
             optional (bool): If True, don't show that corresponding file isn't there
         """
         if not local_path:
-            local_path = _join(HOME, "." + name)
+            local_path = "~/.%s" % name
 
-        local_path = os.path.expanduser(local_path)
         self.add_spec(name, local_path, doc, copy_only, optional)
 
     def setup(self, settings, commit):
@@ -398,10 +424,10 @@ class Section(object):
         @param bool commit: Commit changes when true
         @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
-        rep = Report(self.folder)
-        do_entire_section = self.folder.lower() in settings.active
+        rep = Report(self.name)
+        do_entire_section = self.name.lower() in settings.active
         platform_supported = PLATFORM_SYSTEM in self.platforms
-        match_count = 0
+        skipped = []
         for spec in self.specs:
             if not do_entire_section and not settings.is_active(spec.name):
                 continue
@@ -409,12 +435,14 @@ class Section(object):
             if spec.name in settings.exclude:
                 continue
 
-            match_count += 1
             if platform_supported:
                 rep.add(spec.setup(commit))
 
-        if match_count and not platform_supported:
-            return rep.info("Skipped on this platform (%s), only available on %s", PLATFORM_SYSTEM, " ".join(self.platforms))
+            else:
+                skipped.append(spec)
+
+        if skipped:
+            return rep.info("Skipped on %s: %s", PLATFORM_SYSTEM, ", ".join(str(s) for s in skipped))
 
         return rep
 
@@ -423,7 +451,7 @@ class Section(object):
         if platform and platform not in self.platforms:
             return res
 
-        res += "%s (%s)\n" % (self.folder, self.__doc__.strip())
+        res += "%s (%s)\n" % (self.name, self.__doc__.strip())
         for spec in self.specs:
             res += "  %s\n" % spec.help()
 
@@ -440,13 +468,18 @@ class ShellSection(Section):
         self.add_simple_file_spec("bash_profile", "bash login settings", optional=not is_bash)
         self.add_simple_file_spec("bashrc", "bash session settings", optional=not is_bash)
         self.add_simple_file_spec("bin", "~/bin folder", local_path="~/bin", optional=True)
-        self.add_simple_file_spec("inputrc", "Readline library configuration", optional=True)
-        self.add_simple_file_spec("oh-my-zsh", "oh-my-zsh checkout", optional=True)
-        self.add_simple_file_spec("profile", "Shell login settings")
-        self.add_simple_file_spec("screenrc", "screen configuration", optional=True)
+        self.add_simple_file_spec("inputrc", "readline library configuration", optional=True)
+        self.add_simple_file_spec("profile", "shell login settings")
         self.add_simple_file_spec("starship.toml", "cross-shell prompt", local_path="~/.config/starship.toml", optional=True)
         self.add_simple_file_spec("tmux.conf", "tmux configuration", optional=True)
         self.add_simple_file_spec("zshrc", "zsh settings", optional=bool(os.environ.get("ZSH_VERSION")))
+
+    def computed_roaming_path(self, spec):
+        rel_path = os.path.relpath(spec.local_path, HOME)
+        if rel_path.startswith("."):
+            rel_path = rel_path[1:]
+
+        return _roaming_path(self.folder, rel_path)
 
 
 class ToolsSection(Section):
@@ -454,7 +487,6 @@ class ToolsSection(Section):
 
     def __init__(self):
         super(ToolsSection, self).__init__()
-        self.add_simple_file_spec("ackrc", "ack configuration")
         self.add_simple_file_spec("agignore", "~/.agignore file")
         self.add_simple_file_spec("editorconfig", "See http://editorconfig.org/")
         self.add_simple_file_spec("vimrc", "vim configuration")
@@ -479,7 +511,7 @@ class SshSection(Section):
         self.add_ssh_file("config", "ssh configuration (~/.ssh/config)")
 
     def add_ssh_file(self, name, doc=None, copy_only=False):
-        self.add_spec(name, _join(HOME, ".ssh", name), doc, copy_only)
+        self.add_spec(name, _join("~/.ssh", name), doc, copy_only)
 
 
 class MacOSSection(Section):
@@ -487,10 +519,11 @@ class MacOSSection(Section):
 
     def __init__(self):
         super(MacOSSection, self).__init__()
-        self.folder = os.path.join(self.folder)
         self.platforms = [P_MACOS]
         self.add_spec("DefaultKeyBinding.dict", "~/Library/KeyBindings/DefaultKeyBinding.dict", copy_only=True)
-        self.add_spec("com.googlecode.iterm2.plist", "~/Library/Preferences/com.googlecode.iterm2.plist", "iTerm2 settings", copy_only=True)
+        self.add_spec(
+            "com.googlecode.iterm2.plist", "~/Library/Preferences/com.googlecode.iterm2.plist", doc="iTerm2 settings", copy_only=True
+        )
 
 
 class ST3Section(Section):
@@ -502,14 +535,15 @@ class ST3Section(Section):
         self.long_name = "Sublime Text %s" % version
         self.local_path = None
         if PLATFORM_SYSTEM == P_LINUX:
-            self.local_path = _join(HOME, ".config", "sublime-text-%s" % version)
+            self.local_path = _join("~/.config", "sublime-text-%s" % version)
 
         elif PLATFORM_SYSTEM == P_MACOS:
-            self.local_path = _join(HOME, "Library", "Application Support", self.long_name)
+            self.local_path = _join("~/Library", "Application Support", self.long_name)
 
         elif PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
-            self.local_path = os.path.join(HOME, self.long_name)
+            self.local_path = "~/%s" % self.long_name
 
+        self.local_path = _expanded_path(self.local_path)
         self.add_settings_folder(os.path.join("Packages", "User"))
 
     def setup(self, settings, commit):
@@ -518,15 +552,15 @@ class ST3Section(Section):
         @param bool commit: Commit changes when true
         @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
-        rep = Report(self.folder)
-        if not settings.is_active(self.folder):
+        rep = Report(self.name)
+        if not settings.is_active(self.name):
             return rep
 
         if not self.local_path:
-            return rep.error("Can't determine where %s settings live on this platform" % self.folder)
+            return rep.error("Can't determine where %s settings live on this platform" % self.name)
 
         if not os.path.isdir(self.local_path):
-            rep.error("%s not found in %s", self.folder, self.local_path)
+            rep.error("%s not found in %s", self.name, self.local_path)
             return rep.error("Please install %s and run it at least once, then try this script again", self.long_name)
 
         for spec in self.specs:
@@ -558,7 +592,7 @@ class RoamingRunner(object):
         """
         settings = Settings("all")
         for section in self.sections:
-            settings.add_active(section.folder)
+            settings.add_active(section.name)
 
         return settings
 
@@ -613,11 +647,12 @@ class RoamingRunner(object):
     def _add_adhoc(self, path):
         if not self.adhoc_section:
             self.adhoc_section = Section()
-            self.adhoc_section.folder = "adhoc"
+            self.adhoc_section.name = "adhoc"
+            self.adhoc_section.folder = "shell"
             self.sections.append(self.adhoc_section)
 
         if not self.get_roamable(path):
-            full_path = os.path.expanduser(path)
+            full_path = _expanded_path(path)
             short_name = path[2:]
             if short_name.startswith("."):
                 short_name = short_name[1:]
@@ -798,17 +833,18 @@ def main():
         sys.exit(1)
 
     report = runner.setup(settings, args.commit)
-
     if not report.messages:
         _abort("Couldn't figure out what to roam with '%s'", " ".join(args.what))
 
     print(report)
-
     if not args.commit and report.logs and not report.errors:
         print("Use -c to effectively perform these changes")
 
     elif not report.logs and not report.errors:
         print("All good")
+
+    if report.errors:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
