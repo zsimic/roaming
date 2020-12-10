@@ -10,20 +10,20 @@ import shutil
 import sys
 from platform import system
 
-P_LINUX = 'linux'
-P_MACOS = 'darwin'
-P_CYGWIN = 'cygwin'
-P_WINDOWS = 'windows'
+P_LINUX = "linux"
+P_MACOS = "darwin"
+P_CYGWIN = "cygwin"
+P_WINDOWS = "windows"
 
 PLATFORM_SYSTEM = system().lower()
-if PLATFORM_SYSTEM.startswith('cygwin'):
+if PLATFORM_SYSTEM.startswith("cygwin"):
     PLATFORM_SYSTEM = P_CYGWIN
-    os.environ['CYGWIN'] = "winsymlinks:nativestrict"
+    os.environ["CYGWIN"] = "winsymlinks:nativestrict"
 
 if PLATFORM_SYSTEM in (P_WINDOWS, P_CYGWIN) and sys.version_info < (3, 0):
     sys.exit("Python 3.0+ required on Windows (for proper symlink support)")
 
-HOME = os.environ.get('HOME') or os.environ.get('APPDATA')
+HOME = os.environ.get("HOME") or os.environ.get("APPDATA")
 if not HOME:
     sys.exit("Could not determine HOME folder, please check")
 
@@ -34,9 +34,9 @@ def _join(*components):
     """ Join path properly """
     result = os.path.join(*components)
 
-    if PLATFORM_SYSTEM == P_CYGWIN and result.startswith('/cygdrive'):
-        result = result.replace('/cygdrive/c', 'C:')
-        result = result.replace('/', '\\')
+    if PLATFORM_SYSTEM == P_CYGWIN and result.startswith("/cygdrive"):
+        result = result.replace("/cygdrive/c", "C:")
+        result = result.replace("/", "\\")
 
     return result
 
@@ -53,22 +53,22 @@ def relative_path(path, anchor):
 
 def _short_path(path):
     """ Shortened 'path' if possible (replace expanded HOME with ~) """
-    return path.replace(HOME, '~')
+    return path.replace(HOME, "~")
 
 
 def _get_description_from_file(fpath):
     """ Return comment found on first line in 'fpath', if available """
-    res = ''
+    res = ""
     try:
         with open(fpath) as fh:
             line = fh.readline().strip()
-            if line.startswith('#'):
+            if line.startswith("#"):
                 res = line[1:].strip()
 
     except (IOError, OSError):
         pass
 
-    if not res and fpath.endswith('default.cfg'):
+    if not res and fpath.endswith("default.cfg"):
         res = "Default settings (applied when script ran without any arguments)"
 
     return res
@@ -177,7 +177,7 @@ def _copy(report, source, dest, commit):
 class Report(object):
     """ Simple reporting """
 
-    def __init__(self, title=''):
+    def __init__(self, title=""):
         self.title = title
         self.messages = []
         self.logs = 0
@@ -188,7 +188,7 @@ class Report(object):
             msg = msg % args
 
         if self.title:
-            msg = self.title + ': ' + msg
+            msg = self.title + ": " + msg
 
         self.messages.append(_short_path(msg))
         return self
@@ -212,7 +212,7 @@ class Report(object):
             self.messages.append(m)
 
     def __str__(self):
-        return '\n'.join(self.messages)
+        return "\n".join(self.messages)
 
 
 class Spec(object):
@@ -232,13 +232,13 @@ class Spec(object):
         self.name = name
         self.local_path = os.path.expanduser(local_path)
         self.roaming_path = _roaming_path(self.section.folder, self.name)
-        self.doc = doc or ''
+        self.doc = doc or ""
         if copy_only:
-            self.doc = '[Copy] %s' % self.doc
+            self.doc = "[Copy] %s" % self.doc
 
         short_local_path = _short_path(local_path)
         if short_local_path not in self.doc:
-            self.doc = '%s (%s)' % (self.doc.strip(), short_local_path)
+            self.doc = "%s (%s)" % (self.doc.strip(), short_local_path)
 
         self.copy_only = copy_only
         self.optional = optional
@@ -247,30 +247,30 @@ class Spec(object):
         source = _short_path(self.local_path)
         dest = _short_path(_roaming_path(self.section.folder, self.name))
         if self.copy_only:
-            return '%s <-> %s' % (source, dest)
+            return "%s <-> %s" % (source, dest)
 
-        return '%s -> %s' % (source, dest)
+        return "%s -> %s" % (source, dest)
 
     def is_match(self, name):
         if not name:
             return False
 
-        if name[0] == '~':
+        if name[0] == "~":
             return os.path.expanduser(name) == self.local_path
 
         return name.lower() == self.name.lower()
 
     def setup(self, commit):
         """
-          Link 'self.local_path' to roaming correspondent,
-          if roaming correspondent does not exist, create it from the contents of 'self.local_path',
-          then delete self.local_path and link it to roaming
-          @param bool commit: Commit changes when true
-          @return Report: Report on how setup went, what was done or would be done if 'commit' was True
+        Link 'self.local_path' to roaming correspondent,
+        if roaming correspondent does not exist, create it from the contents of 'self.local_path',
+        then delete self.local_path and link it to roaming
+        @param bool commit: Commit changes when true
+        @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
         report = Report(self.section.folder)
         if self.copy_only:
-            report.title += '+'
+            report.title += "+"
             needs_copy = True
             if not os.path.exists(self.roaming_path) and os.path.exists(self.local_path):
                 # First time we roam this copy_only file, seed the roaming folder with it
@@ -336,27 +336,27 @@ class Spec(object):
         return report
 
     def help(self):
-        return '%-20s %s' % (self.name, self.doc)
+        return "%-20s %s" % (self.name, self.doc)
 
 
 class Section(object):
     """ Roaming section """
 
     def __init__(self):
-        self.platforms = [P_CYGWIN, P_LINUX, P_MACOS, P_WINDOWS]                    # Supported platforms
-        self.folder = self.__class__.__name__.lower().replace('section', '')        # Folder name holding the roamed settings
-        self.specs = []                                                             # Specifications to roam for this section
+        self.platforms = [P_CYGWIN, P_LINUX, P_MACOS, P_WINDOWS]  # Supported platforms
+        self.folder = self.__class__.__name__.lower().replace("section", "")  # Folder name holding the roamed settings
+        self.specs = []  # Specifications to roam for this section
 
     def __repr__(self):
-        return '%s [%s] %s specs' % (self.folder, ' '.join(self.platforms), len(self.specs))
+        return "%s [%s] %s specs" % (self.folder, " ".join(self.platforms), len(self.specs))
 
     def is_match(self, name):
         return self.folder.lower() == name.lower()
 
     def get_roamable(self, name):
         """
-          @param str name: Name of roamable
-          @return: Corresponding section or spec?
+        @param str name: Name of roamable
+        @return: Corresponding section or spec?
         """
         if self.is_match(name):
             return self
@@ -387,16 +387,16 @@ class Section(object):
             optional (bool): If True, don't show that corresponding file isn't there
         """
         if not local_path:
-            local_path = _join(HOME, '.' + name)
+            local_path = _join(HOME, "." + name)
 
         local_path = os.path.expanduser(local_path)
         self.add_spec(name, local_path, doc, copy_only, optional)
 
     def setup(self, settings, commit):
         """
-          @param Settings settings: What the user wants roamed
-          @param bool commit: Commit changes when true
-          @return Report: Report on how setup went, what was done or would be done if 'commit' was True
+        @param Settings settings: What the user wants roamed
+        @param bool commit: Commit changes when true
+        @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
         rep = Report(self.folder)
         do_entire_section = self.folder.lower() in settings.active
@@ -414,18 +414,18 @@ class Section(object):
                 rep.add(spec.setup(commit))
 
         if match_count and not platform_supported:
-            return rep.info("Skipped on this platform (%s), only available on %s", PLATFORM_SYSTEM, ' '.join(self.platforms))
+            return rep.info("Skipped on this platform (%s), only available on %s", PLATFORM_SYSTEM, " ".join(self.platforms))
 
         return rep
 
     def help(self, platform):
-        res = ''
+        res = ""
         if platform and platform not in self.platforms:
             return res
 
-        res += '%s (%s)\n' % (self.folder, self.__doc__.strip())
+        res += "%s (%s)\n" % (self.folder, self.__doc__.strip())
         for spec in self.specs:
-            res += '  %s\n' % spec.help()
+            res += "  %s\n" % spec.help()
 
         return res
 
@@ -437,16 +437,16 @@ class ShellSection(Section):
         super(ShellSection, self).__init__()
         self.platforms = [P_CYGWIN, P_LINUX, P_MACOS]
         is_bash = os.environ.get("BASH_VERSION")
-        self.add_simple_file_spec('bash_profile', "bash login settings", optional=not is_bash)
-        self.add_simple_file_spec('bashrc', "bash session settings", optional=not is_bash)
-        self.add_simple_file_spec('bin', "~/bin folder", local_path='~/bin', optional=True)
-        self.add_simple_file_spec('inputrc', "Readline library configuration", optional=True)
-        self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout", optional=True)
-        self.add_simple_file_spec('profile', "Shell login settings")
-        self.add_simple_file_spec('screenrc', "screen configuration", optional=True)
-        self.add_simple_file_spec('starship.toml', "cross-shell prompt", local_path="~/.config/starship.toml", optional=True)
-        self.add_simple_file_spec('tmux.conf', "tmux configuration", optional=True)
-        self.add_simple_file_spec('zshrc', "zsh settings", optional=bool(os.environ.get("ZSH_VERSION")))
+        self.add_simple_file_spec("bash_profile", "bash login settings", optional=not is_bash)
+        self.add_simple_file_spec("bashrc", "bash session settings", optional=not is_bash)
+        self.add_simple_file_spec("bin", "~/bin folder", local_path="~/bin", optional=True)
+        self.add_simple_file_spec("inputrc", "Readline library configuration", optional=True)
+        self.add_simple_file_spec("oh-my-zsh", "oh-my-zsh checkout", optional=True)
+        self.add_simple_file_spec("profile", "Shell login settings")
+        self.add_simple_file_spec("screenrc", "screen configuration", optional=True)
+        self.add_simple_file_spec("starship.toml", "cross-shell prompt", local_path="~/.config/starship.toml", optional=True)
+        self.add_simple_file_spec("tmux.conf", "tmux configuration", optional=True)
+        self.add_simple_file_spec("zshrc", "zsh settings", optional=bool(os.environ.get("ZSH_VERSION")))
 
 
 class ToolsSection(Section):
@@ -454,10 +454,10 @@ class ToolsSection(Section):
 
     def __init__(self):
         super(ToolsSection, self).__init__()
-        self.add_simple_file_spec('ackrc', "ack configuration")
-        self.add_simple_file_spec('agignore', "~/.agignore file")
-        self.add_simple_file_spec('editorconfig', "See http://editorconfig.org/")
-        self.add_simple_file_spec('vimrc', "vim configuration")
+        self.add_simple_file_spec("ackrc", "ack configuration")
+        self.add_simple_file_spec("agignore", "~/.agignore file")
+        self.add_simple_file_spec("editorconfig", "See http://editorconfig.org/")
+        self.add_simple_file_spec("vimrc", "vim configuration")
 
 
 class GitSection(Section):
@@ -466,8 +466,8 @@ class GitSection(Section):
     def __init__(self):
         super(GitSection, self).__init__()
         self.platforms = [P_CYGWIN, P_LINUX, P_MACOS]
-        self.add_simple_file_spec('gitconfig', "~/.gitconfig file")
-        self.add_simple_file_spec('gitignore_global', "~/.gitignore_global file (if you like to have a global git ignore)")
+        self.add_simple_file_spec("gitconfig", "~/.gitconfig file")
+        self.add_simple_file_spec("gitignore_global", "~/.gitignore_global file (if you like to have a global git ignore)")
 
 
 class SshSection(Section):
@@ -476,10 +476,10 @@ class SshSection(Section):
     def __init__(self):
         super(SshSection, self).__init__()
         self.platforms = [P_LINUX, P_MACOS]
-        self.add_ssh_file('config', "ssh configuration (~/.ssh/config)")
+        self.add_ssh_file("config", "ssh configuration (~/.ssh/config)")
 
     def add_ssh_file(self, name, doc=None, copy_only=False):
-        self.add_spec(name, _join(HOME, '.ssh', name), doc, copy_only)
+        self.add_spec(name, _join(HOME, ".ssh", name), doc, copy_only)
 
 
 class MacOSSection(Section):
@@ -489,9 +489,8 @@ class MacOSSection(Section):
         super(MacOSSection, self).__init__()
         self.folder = os.path.join(self.folder)
         self.platforms = [P_MACOS]
-        self.add_spec('DefaultKeyBinding.dict', '~/Library/KeyBindings/DefaultKeyBinding.dict', copy_only=True)
-        self.add_spec('com.googlecode.iterm2.plist', '~/Library/Preferences/com.googlecode.iterm2.plist',
-                      'iTerm2 settings', copy_only=True)
+        self.add_spec("DefaultKeyBinding.dict", "~/Library/KeyBindings/DefaultKeyBinding.dict", copy_only=True)
+        self.add_spec("com.googlecode.iterm2.plist", "~/Library/Preferences/com.googlecode.iterm2.plist", "iTerm2 settings", copy_only=True)
 
 
 class ST3Section(Section):
@@ -500,24 +499,24 @@ class ST3Section(Section):
     def __init__(self):
         super(ST3Section, self).__init__()
         version = self.folder[-1]
-        self.long_name = 'Sublime Text %s' % version
+        self.long_name = "Sublime Text %s" % version
         self.local_path = None
         if PLATFORM_SYSTEM == P_LINUX:
-            self.local_path = _join(HOME, '.config', 'sublime-text-%s' % version)
+            self.local_path = _join(HOME, ".config", "sublime-text-%s" % version)
 
         elif PLATFORM_SYSTEM == P_MACOS:
-            self.local_path = _join(HOME, 'Library', 'Application Support', self.long_name)
+            self.local_path = _join(HOME, "Library", "Application Support", self.long_name)
 
         elif PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
             self.local_path = os.path.join(HOME, self.long_name)
 
-        self.add_settings_folder(os.path.join('Packages', 'User'))
+        self.add_settings_folder(os.path.join("Packages", "User"))
 
     def setup(self, settings, commit):
         """
-          @param Settings settings: What the user wants roamed
-          @param bool commit: Commit changes when true
-          @return Report: Report on how setup went, what was done or would be done if 'commit' was True
+        @param Settings settings: What the user wants roamed
+        @param bool commit: Commit changes when true
+        @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
         rep = Report(self.folder)
         if not settings.is_active(self.folder):
@@ -551,13 +550,13 @@ class RoamingRunner(object):
         self.sections.append(MacOSSection())
 
     def __repr__(self):
-        return '%s sections' % len(self.sections)
+        return "%s sections" % len(self.sections)
 
     def all_settings(self):
         """
         @return Settings: Settings to roam everything we have
         """
-        settings = Settings('all')
+        settings = Settings("all")
         for section in self.sections:
             settings.add_active(section.folder)
 
@@ -565,9 +564,9 @@ class RoamingRunner(object):
 
     def setup(self, settings, commit):
         """
-          @param Settings settings: Settings specifying what to roam
-          @param bool commit: Commit changes when true
-          @return Report: Report on how setup went, what was done or would be done if 'commit' was True
+        @param Settings settings: Settings specifying what to roam
+        @param bool commit: Commit changes when true
+        @return Report: Report on how setup went, what was done or would be done if 'commit' was True
         """
         report = Report()
         for section in self.sections:
@@ -577,23 +576,23 @@ class RoamingRunner(object):
 
     @staticmethod
     def available_bundles():
-        res = ''
+        res = ""
         for fname in os.listdir(ROAMING_ROOT):
-            if fname.lower().endswith('.cfg'):
-                res += '  %-20s %s\n' % (fname[:-4], _get_description_from_file(_roaming_path(fname)))
+            if fname.lower().endswith(".cfg"):
+                res += "  %-20s %s\n" % (fname[:-4], _get_description_from_file(_roaming_path(fname)))
 
         if res:
-            res = 'Available .cfg bundles:\n%s' % res
+            res = "Available .cfg bundles:\n%s" % res
 
         return res
 
     def help(self, platform=None):
         """ List of roamable things for platform (if specified) """
-        res = ''
+        res = ""
         for section in self.sections:
             sh = section.help(platform)
             if sh:
-                res += sh + '\n'
+                res += sh + "\n"
 
         res += self.available_bundles()
         return res
@@ -614,21 +613,21 @@ class RoamingRunner(object):
     def _add_adhoc(self, path):
         if not self.adhoc_section:
             self.adhoc_section = Section()
-            self.adhoc_section.folder = 'adhoc'
+            self.adhoc_section.folder = "adhoc"
             self.sections.append(self.adhoc_section)
 
         if not self.get_roamable(path):
             full_path = os.path.expanduser(path)
             short_name = path[2:]
-            if short_name.startswith('.'):
+            if short_name.startswith("."):
                 short_name = short_name[1:]
 
             self.adhoc_section.add_simple_file_spec(short_name, path, full_path)
 
     def add_to_settings(self, settings, what):
         """
-          @param Settings settings: Settings to add to
-          @param str what: What to add to 'settings'
+        @param Settings settings: Settings to add to
+        @param str what: What to add to 'settings'
         """
         if what == "osx":
             msg = [
@@ -641,11 +640,11 @@ class RoamingRunner(object):
             ]
             _abort("\n********************************\n\n%s\n\n********************************\n" % "\n".join(msg))
 
-        if what.startswith('-'):
+        if what.startswith("-"):
             settings.add_exclude(what[1:])
             return
 
-        if what.startswith('~/'):
+        if what.startswith("~/"):
             self._add_adhoc(what)
 
         roamable = self.get_roamable(what)
@@ -653,7 +652,7 @@ class RoamingRunner(object):
             settings.add_active(roamable)
             return
 
-        if what == 'all':
+        if what == "all":
             s = self.all_settings()
 
         else:
@@ -679,8 +678,8 @@ class RoamingRunner(object):
 
         fpath = _roaming_path(name)
         if not os.path.exists(fpath):
-            if not name.endswith('.cfg'):
-                fpath = _roaming_path(name + '.cfg')
+            if not name.endswith(".cfg"):
+                fpath = _roaming_path(name + ".cfg")
 
             if not os.path.exists(fpath):
                 return None
@@ -691,11 +690,11 @@ class RoamingRunner(object):
                 in_roam_section = False
                 for line in fh.readlines():
                     line = line.strip()
-                    if not line or line.startswith('#'):
+                    if not line or line.startswith("#"):
                         continue
 
-                    if line.startswith('['):
-                        in_roam_section = line == '[roam]'
+                    if line.startswith("["):
+                        in_roam_section = line == "[roam]"
                         continue
 
                     if not in_roam_section:
@@ -723,9 +722,9 @@ class Settings(object):
         self.exclude = set()
 
     def __repr__(self):
-        result = '(%s) %s' % (self.name, ' '.join(self.active))
+        result = "(%s) %s" % (self.name, " ".join(self.active))
         if self.exclude:
-            result = '%s [ex: %s]' % (result, ' '.join(sorted(self.exclude)))
+            result = "%s [ex: %s]" % (result, " ".join(sorted(self.exclude)))
 
         return result
 
@@ -768,9 +767,9 @@ def main():
     runner = RoamingRunner()
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-l', '--list', action='store_true', help="List what can be specified as what to roam.")
-    parser.add_argument('-c', '--commit', action='store_true', help="Commit changes.")
-    parser.add_argument('what', nargs='*', help="What to roam (see --list for what's available).")
+    parser.add_argument("-l", "--list", action="store_true", help="List what can be specified as what to roam.")
+    parser.add_argument("-c", "--commit", action="store_true", help="Commit changes.")
+    parser.add_argument("what", nargs="*", help="What to roam (see --list for what's available).")
     args = parser.parse_args()
 
     if args.list:
@@ -782,15 +781,15 @@ def main():
         # sys.exit(1)
 
     if args.what:
-        settings = Settings('command line')
+        settings = Settings("command line")
         for what in args.what:
             runner.add_to_settings(settings, what)
 
         if not settings.active:
-            _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
+            _abort("Couldn't figure out what to roam with '%s'", " ".join(args.what))
 
     else:
-        settings = runner.settings_from_file('default')
+        settings = runner.settings_from_file("default")
 
     if not settings:
         print("Specify which settings to roam (see --help)")
@@ -801,7 +800,7 @@ def main():
     report = runner.setup(settings, args.commit)
 
     if not report.messages:
-        _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
+        _abort("Couldn't figure out what to roam with '%s'", " ".join(args.what))
 
     print(report)
 
