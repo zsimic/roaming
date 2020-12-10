@@ -11,15 +11,10 @@ Icon?
 
 # Don't check-in default.cfg
 default.cfg
+notes/
 
 # Roaming subfolders
 _*
-adhoc
-git
-linux
-macos
-shell
-ssh
-st3
-tools
-windows
+linux/
+macos/
+windows/
