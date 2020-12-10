@@ -475,11 +475,9 @@ class ShellSection(Section):
         is_bash = os.environ.get("BASH_VERSION")
         self.add_simple_file_spec("bash_profile", "bash login settings", optional=not is_bash)
         self.add_simple_file_spec("bashrc", "bash session settings", optional=not is_bash)
-        self.add_simple_file_spec("bin", "~/bin folder", local_path="~/bin", optional=True)
         self.add_simple_file_spec("inputrc", "readline library configuration", optional=True)
         self.add_simple_file_spec("profile", "shell login settings")
         self.add_simple_file_spec("starship.toml", "cross-shell prompt", local_path="~/.config/starship.toml", optional=True)
-        self.add_simple_file_spec("tmux.conf", "tmux configuration", optional=True)
         self.add_simple_file_spec("zshrc", "zsh settings", optional=bool(os.environ.get("ZSH_VERSION")))
 
 
@@ -489,7 +487,9 @@ class ToolsSection(Section):
     def __init__(self):
         super(ToolsSection, self).__init__()
         self.add_simple_file_spec("agignore", "~/.agignore file")
+        self.add_simple_file_spec("bin", "~/bin folder", local_path="~/bin")
         self.add_simple_file_spec("editorconfig", "See http://editorconfig.org/")
+        self.add_simple_file_spec("tmux.conf", "tmux configuration")
         self.add_simple_file_spec("vimrc", "vim configuration")
 
 
