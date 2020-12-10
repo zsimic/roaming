@@ -6,16 +6,16 @@ Roam settings for ST2, ST3, shell settings etc.
 
 import argparse
 import os
-import platform
 import shutil
 import sys
+from platform import system
 
 P_LINUX = 'linux'
 P_MACOS = 'darwin'
 P_CYGWIN = 'cygwin'
 P_WINDOWS = 'windows'
 
-PLATFORM_SYSTEM = platform.system().lower()
+PLATFORM_SYSTEM = system().lower()
 if PLATFORM_SYSTEM.startswith('cygwin'):
     PLATFORM_SYSTEM = P_CYGWIN
     os.environ['CYGWIN'] = "winsymlinks:nativestrict"
@@ -65,7 +65,7 @@ def _get_description_from_file(fpath):
             if line.startswith('#'):
                 res = line[1:].strip()
 
-    except Exception:
+    except (IOError, OSError):
         pass
 
     if not res and fpath.endswith('default.cfg'):
@@ -218,16 +218,20 @@ class Report(object):
 class Spec(object):
     """ File or folder roaming spec """
 
-    def __init__(self, section, name, local_path, doc, copy_only=False):
-        #: Parent section, defines which roaming subfolder this should go under
+    def __init__(self, section, name, local_path, doc, copy_only=False, optional=False):
+        """
+        Args:
+            section (Section): Associated section, defines which roaming subfolder this should go under
+            name (str): Name of the file or folder roamed
+            local_path (str): Full path to local file (outside of roaming folder)
+            doc (str | None): Short explanation of what the file/folder is
+            copy_only (bool): Copy the file from roaming <-> local when True (instead of symlink local -> roaming)
+            optional (bool): If True, don't show that corresponding file isn't there
+        """
         self.section = section
-        #: Name of the file or folder roamed
         self.name = name
-        #: Full path to local file (outside of roaming folder)
         self.local_path = os.path.expanduser(local_path)
-        # Full path to roaming file (inside roaming folder)
         self.roaming_path = _roaming_path(self.section.folder, self.name)
-        #: Short explanation of what the file/folder is
         self.doc = doc or ''
         if copy_only:
             self.doc = '[Copy] %s' % self.doc
@@ -236,8 +240,8 @@ class Spec(object):
         if short_local_path not in self.doc:
             self.doc = '%s (%s)' % (self.doc.strip(), short_local_path)
 
-        #: Copy the file from roaming <-> local when True (instead of symlinking local -> roaming)
         self.copy_only = copy_only
+        self.optional = optional
 
     def __repr__(self):
         source = _short_path(self.local_path)
@@ -275,12 +279,12 @@ class Spec(object):
 
             if os.path.islink(self.local_path):
                 # Local path shouldn't be a symlink, probably left-over from earlier mistaken roaming
-                # Example: macOS KeyBindings used to be symlinked but not anymore (sandboxed apps can't read it when symlinked)
+                # Example: macOS KeyBindings used to be symlinked but not anymore (sandbox-ed apps can't read it when symlinked)
                 needs_copy = True
                 _delete(report, self.local_path, commit)
 
             elif os.path.islink(os.path.dirname(self.local_path)):
-                # Special case with previous symlinking of KeyBindings by this very script...
+                # Special case with previous symlink of KeyBindings by this very script...
                 # This script used to symlink ~/Library/KeyBindings -> roaming (instead of ~/Library/KeyBindings/DefaultKeyBinding.dict)
                 needs_copy = True
                 _delete(report, os.path.dirname(self.local_path), commit)
@@ -294,7 +298,7 @@ class Spec(object):
 
             if os.path.exists(self.local_path):
                 time_diff = os.path.getmtime(self.roaming_path) - os.path.getmtime(self.local_path)
-                if abs(time_diff) < 5:
+                if abs(time_diff) < 60:
                     report.info("OK %s <-> %s", self.local_path, self.roaming_path)
 
                 elif time_diff > 0:
@@ -319,7 +323,13 @@ class Spec(object):
 
         if not os.path.exists(self.roaming_path):
             # Initialize self.roaming_path from self.local_path
-            _copy(report, self.local_path, self.roaming_path, commit)
+            if not os.path.exists(self.local_path):
+                if self.optional:
+                    return report
+
+            r = _copy(report, self.local_path, self.roaming_path, commit)
+            if r.errors:
+                return r
 
         _delete(report, self.local_path, commit)
         _symlink(report, self.local_path, self.roaming_path, commit)
@@ -355,28 +365,32 @@ class Section(object):
             if spec.is_match(name):
                 return spec
 
-    def add_spec(self, name, local_path, doc=None, copy_only=False):
+    def add_spec(self, name, local_path, doc=None, copy_only=False, optional=False):
         """
-          @param str name: Name of the file or folder roamed
-          @param str local_path: Full path to local file (outside of roaming folder)
-          @param str, None doc: Short Short explanation of what the file/folder is
-          @param bool copy_only: When true, copy files roaming <-> local, instead of creating a local -> roaming symlink
+        Args:
+            name (str): Name of the file or folder roamed
+            local_path (str): Full path to local file (outside of roaming folder)
+            doc (str | None): Short explanation of what the file/folder is
+            copy_only (bool): Copy the file from roaming <-> local when True (instead of symlink local -> roaming)
+            optional (bool): If True, don't show that corresponding file isn't there
         """
-        spec = Spec(self, name, local_path, doc, copy_only)
+        spec = Spec(self, name, local_path, doc, copy_only, optional)
         self.specs.append(spec)
 
-    def add_simple_file_spec(self, name, doc=None, local_path=None, copy_only=False):
+    def add_simple_file_spec(self, name, doc=None, local_path=None, copy_only=False, optional=False):
         """
-          @param str name: Name of the file or folder roamed
-          @param str, None doc: Short Short explanation of what the file/folder is
-          @param str local_path: Full path to local file (outside of roaming folder), default ~/.<name>
-          @param bool copy_only: When true, copy files roaming <-> local, instead of creating a local -> roaming symlink
+        Args:
+            name (str): Name of the file or folder roamed
+            doc (str | None): Short explanation of what the file/folder is
+            local_path (str | None): Full path to local file (outside of roaming folder), default ~/.<name>
+            copy_only (bool): Copy the file from roaming <-> local when True (instead of symlink local -> roaming)
+            optional (bool): If True, don't show that corresponding file isn't there
         """
         if not local_path:
             local_path = _join(HOME, '.' + name)
 
         local_path = os.path.expanduser(local_path)
-        self.add_spec(name, local_path, doc, copy_only)
+        self.add_spec(name, local_path, doc, copy_only, optional)
 
     def setup(self, settings, commit):
         """
@@ -422,15 +436,17 @@ class ShellSection(Section):
     def __init__(self):
         super(ShellSection, self).__init__()
         self.platforms = [P_CYGWIN, P_LINUX, P_MACOS]
-        self.add_simple_file_spec('bash_profile', "bash login settings")
-        self.add_simple_file_spec('bashrc', "bash session settings")
-        self.add_simple_file_spec('bin', "~/bin folder", local_path='~/bin')
-        self.add_simple_file_spec('inputrc', "Readline library configuration")
-        self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout")
+        is_bash = os.environ.get("BASH_VERSION")
+        self.add_simple_file_spec('bash_profile', "bash login settings", optional=not is_bash)
+        self.add_simple_file_spec('bashrc', "bash session settings", optional=not is_bash)
+        self.add_simple_file_spec('bin', "~/bin folder", local_path='~/bin', optional=True)
+        self.add_simple_file_spec('inputrc', "Readline library configuration", optional=True)
+        self.add_simple_file_spec('oh-my-zsh', "oh-my-zsh checkout", optional=True)
         self.add_simple_file_spec('profile', "Shell login settings")
-        self.add_simple_file_spec('screenrc', "screen configuration")
-        self.add_simple_file_spec('tmux.conf', "tmux configuration")
-        self.add_simple_file_spec('zshrc', "zsh settings")
+        self.add_simple_file_spec('screenrc', "screen configuration", optional=True)
+        self.add_simple_file_spec('starship.toml', "cross-shell prompt", local_path="~/.config/starship.toml", optional=True)
+        self.add_simple_file_spec('tmux.conf', "tmux configuration", optional=True)
+        self.add_simple_file_spec('zshrc', "zsh settings", optional=bool(os.environ.get("ZSH_VERSION")))
 
 
 class ToolsSection(Section):
@@ -525,7 +541,7 @@ class ST3Section(Section):
 
 class RoamingRunner(object):
     def __init__(self):
-        self.sections = []
+        self.sections = []  # type: list[Section]
         self.adhoc_section = None
         self.sections.append(ShellSection())
         self.sections.append(ToolsSection())
@@ -559,7 +575,8 @@ class RoamingRunner(object):
 
         return report
 
-    def available_bundles(self):
+    @staticmethod
+    def available_bundles():
         res = ''
         for fname in os.listdir(ROAMING_ROOT):
             if fname.lower().endswith('.cfg'):
@@ -583,8 +600,11 @@ class RoamingRunner(object):
 
     def get_roamable(self, name):
         """
-          @param str name: Name of roamable
-          @return: Corresponding section or spec?
+        Args:
+            name (str): Name of roamable
+
+        Returns:
+            (Section | Spec | None): Corresponding section or spec, if available
         """
         for section in self.sections:
             roamable = section.get_roamable(name)
@@ -605,7 +625,7 @@ class RoamingRunner(object):
 
             self.adhoc_section.add_simple_file_spec(short_name, path, full_path)
 
-    def _add_to_settings(self, settings, what):
+    def add_to_settings(self, settings, what):
         """
           @param Settings settings: Settings to add to
           @param str what: What to add to 'settings'
@@ -681,7 +701,7 @@ class RoamingRunner(object):
                     if not in_roam_section:
                         continue
 
-                    self._add_to_settings(settings, line)
+                    self.add_to_settings(settings, line)
 
             return settings
 
@@ -764,7 +784,7 @@ def main():
     if args.what:
         settings = Settings('command line')
         for what in args.what:
-            runner._add_to_settings(settings, what)
+            runner.add_to_settings(settings, what)
 
         if not settings.active:
             _abort("Couldn't figure out what to roam with '%s'", ' '.join(args.what))
