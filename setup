@@ -28,7 +28,19 @@ HOME = os.environ.get("HOME") or os.environ.get("APPDATA")
 if not HOME:
     sys.exit("Could not determine HOME folder, please check")
 
-ROAMING_ROOT = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
+
+def get_roaming_root():
+    path = os.path.dirname(os.path.abspath(os.path.realpath(os.path.expanduser(__file__))))
+    wsl = "/mnt/c/users"  # Can Windows Subsystem for Linux be better handled?
+    if path.lower().startswith(wsl):
+        p = os.path.join("/home", path[len(wsl)+1:])
+        if os.path.exists(p):
+            return p
+
+    return path
+
+
+ROAMING_ROOT = get_roaming_root()
 
 
 def _expanded_path(path):
