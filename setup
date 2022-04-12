@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Roam settings for shell rc files, Sublime Text etc.
@@ -538,6 +538,53 @@ class MacOSSection(Section):
         return _roaming_path("macos", spec.name)
 
 
+class STSection(Section):
+    """ Sublime Text settings """
+
+    def __init__(self):
+        super(STSection, self).__init__()
+        self.long_name = "Sublime Text"
+        local_path = None
+        self.base_folder = "config/sublime-text"
+        if PLATFORM_SYSTEM == P_LINUX:
+            local_path = "~/.%s" % self.base_folder
+
+        elif PLATFORM_SYSTEM == P_MACOS:
+            local_path = _join("~/Library", "Application Support", self.long_name)
+
+        elif PLATFORM_SYSTEM in (P_CYGWIN, P_WINDOWS):
+            local_path = "~/%s" % self.long_name
+
+        self.local_path = _expanded_path(local_path)
+        user_prefs = "Packages/User"
+        self.add_spec(user_prefs, _join(local_path, user_prefs), doc="Sublime Text user settings")
+
+    def computed_roaming_path(self, spec):
+        return _roaming_path(DEFAULT_ROAMING_SUBFOLER, self.base_folder, spec.name)
+
+    def setup(self, settings, commit):
+        """
+        @param Settings settings: What the user wants roamed
+        @param bool commit: Commit changes when true
+        @return Report: Report on how setup went, what was done or would be done if 'commit' was True
+        """
+        rep = Report(self.name)
+        if not settings.is_active(self.name):
+            return rep
+
+        if not self.local_path:
+            return rep.error("Can't determine where %s settings live on this platform" % self.name)
+
+        if not os.path.isdir(self.local_path):
+            rep.error("%s not found in %s", self.name, self.local_path)
+            return rep.error("Please install %s and run it at least once, then try this script again", self.long_name)
+
+        for spec in self.specs:
+            rep.add(spec.setup(commit))
+
+        return rep
+
+
 class ST3Section(Section):
     """ Sublime Text 3 settings """
 
@@ -592,6 +639,7 @@ class RoamingRunner(object):
         self.sections.append(ShellSection())
         self.sections.append(ToolsSection())
         self.sections.append(GitSection())
+        self.sections.append(STSection())
         self.sections.append(ST3Section())
         self.sections.append(SshSection())
         self.sections.append(MacOSSection())
