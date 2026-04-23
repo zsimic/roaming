@@ -1,3 +1,5 @@
+> Repo deprecated: I'm using https://github.com/zsimic/dotfiles now.
+
 Simple script to automate roaming of key settings across several machines via services like Dropbox
 
 What is this?
